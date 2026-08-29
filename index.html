@@ -42,13 +42,17 @@
     </div>
   </div>
 
-  <div class="journeyBar">
-    <div class="container journeyRow">
-      <span class="label">Hành trình của bạn</span>
-      <div class="journeyTrack">
-        <div class="journeyFill" id="journeyFill" style="width:0%"></div>
+  <div class="subnav" id="subnav">
+    <div class="container subnavRow">
+      <button class="btn ghost navBtn" id="navBack">← Quay lại</button>
+      <div class="stepCircles" id="stepCircles" role="tablist" aria-label="Các bước trong chặng"></div>
+      <button class="btn primary navBtn" id="navNext">Tiếp theo →</button>
+      <div class="journeyMini">
+        <div class="journeyTrack">
+          <div class="journeyFill" id="journeyFill" style="width:0%"></div>
+        </div>
+        <span class="journeyPct" id="journeyPct">0/4 chặng</span>
       </div>
-      <span class="journeyPct" id="journeyPct">0/4 chặng</span>
     </div>
   </div>
 
@@ -60,12 +64,12 @@
         <div class="container heroGrid">
           <div>
             <span class="kicker">✨ Cổng tập huấn nội bộ · Giáo viên học cùng giáo viên</span>
-            <h1>Cổng thông tin nâng cao kĩ năng <span class="gradientText">sử dụng AI cho giáo viên</span></h1>
+            <h1>Cổng thông tin nâng cao <br> <span class="gradientText">kĩ năng sử dụng AI cho giáo viên</span></h1>
             <p class="lede"><strong>THPT Chuyên Chu Văn An</strong> — mỗi chặng giải quyết đúng một câu hỏi: hiểu AI nào
               hợp việc gì, viết yêu cầu ra sao, tạo được sản phẩm gì, và giữ an toàn thế nào.</p>
             <div class="actions">
               <button class="btn primary" data-goto-chang="c1">🧭 Bắt đầu Chặng 1</button>
-              <button class="btn secondary" data-scroll-to="compass">🎯 Để trang gợi ý cho tôi</button>
+              <button class="btn secondary" data-scroll-to="demo">⚡ Thử ngay với AI</button>
             </div>
           </div>
           <div class="heroCard">
@@ -82,45 +86,116 @@
         </div>
       </header>
 
-      <section id="compass">
-        <div class="container panel compass">
-          <div>
-            <span class="kicker">🎯 Gợi ý lộ trình</span>
-            <h2 style="margin-top:12px">Hôm nay thầy/cô muốn AI giúp việc gì?</h2>
-            <p style="color:var(--muted);margin:8px 0 18px">Trả lời 3 câu, trang sẽ đưa bạn thẳng tới chặng phù hợp —
-              không cần đi tuần tự từ đầu.</p>
-            <div class="formGrid">
-              <div><label for="level">Mức độ quen AI</label>
-                <select id="level">
-                  <option>Mới bắt đầu</option>
-                  <option>Đã dùng thường xuyên</option>
-                  <option>Muốn tự động hóa sâu hơn</option>
-                </select>
-              </div>
-              <div><label for="goal">Mục tiêu hôm nay</label>
-                <select id="goal">
-                  <option value="c1">Chưa biết bắt đầu từ đâu</option>
-                  <option value="c2">Soạn bài / viết nội dung</option>
-                  <option value="c3">Tạo công cụ HTML tương tác</option>
-                  <option value="c4">Đưa sản phẩm lên mạng an toàn</option>
-                </select>
-              </div>
-              <div><label for="time">Thời gian có thể dành</label>
-                <select id="time">
-                  <option>10 phút</option>
-                  <option>30 phút</option>
-                  <option>60 phút</option>
-                </select>
-              </div>
-              <button class="btn primary" onclick="runCompass()">✨ Gợi ý điểm bắt đầu</button>
+      <section id="demo">
+        <div class="container">
+          <div class="sectionHead">
+            <div>
+              <span class="kicker">⚡ Thử ngay, chưa cần học gì</span>
+              <h2 style="margin-top:10px">Đưa một file HTML cho AI nhận xét</h2>
+              <p>Ba bước, khoảng 5 phút. Xong bước này thầy/cô đã biết AI giúp được gì — rồi hãy đi lộ trình 4 chặng
+                bên dưới để làm chủ nó.</p>
             </div>
           </div>
-          <div class="resultBox" id="compassResult">
-            <h3>Gợi ý nhanh</h3>
-            <p>Chọn thông tin bên trái và bấm "Gợi ý điểm bắt đầu".</p>
-            <div class="chips"><span class="chip">Dễ bắt đầu</span><span class="chip">Học qua sản phẩm</span><span
-                class="chip">Có kiểm thử</span></div>
+
+          <!-- Bước 1 — thông tin giáo viên -->
+          <div class="panel demoStep" data-step="1">
+            <div class="demoStepHead"><span class="demoNum">1</span>
+              <div>
+                <h3>Thầy/cô là ai?</h3>
+                <p>Thông tin này đi kèm bài nộp để đồng nghiệp biết ai làm, lưu sẵn cho lần sau.</p>
+              </div>
+            </div>
+            <div class="teacherGrid">
+              <div><label for="teacherName">Họ và tên</label>
+                <input type="text" id="teacherName" placeholder="VD: Trần Thị Thảo Vân" autocomplete="name">
+              </div>
+              <div><label for="teacherClass">Lớp dạy</label>
+                <select id="teacherClass"></select>
+              </div>
+              <div><label for="teacherTo">Tổ chuyên môn</label>
+                <select id="teacherTo"></select>
+              </div>
+            </div>
+            <div class="demoHint" id="teacherHint"></div>
           </div>
+
+          <!-- Bước 2 — API key & model -->
+          <div class="panel demoStep" data-step="2" id="stepKey">
+            <div class="demoStepHead"><span class="demoNum">2</span>
+              <div>
+                <h3>Cấu hình API key &amp; chọn model</h3>
+                <p>Key chỉ lưu trong trình duyệt này (localStorage), gửi thẳng tới nhà cung cấp — không đi qua máy chủ
+                  nào khác, kể cả máy chủ của trang này.</p>
+              </div>
+            </div>
+            <div class="apiPanel">
+              <div>
+                <div class="providerRow" id="providerRow"></div>
+                <div id="providerHint" class="providerHint"></div>
+                <label for="keyInput">API key</label>
+                <div class="keyRow">
+                  <input type="password" id="keyInput" placeholder="Dán API key vào đây" autocomplete="off">
+                  <button class="btn secondary btnSm" onclick="toggleKeyVisibility()" id="toggleKeyBtn"
+                    aria-label="Hiện/ẩn key">👁️</button>
+                </div>
+                <label for="modelSelect">Model</label>
+                <select id="modelSelect" class="fullSelect"></select>
+                <div class="actions">
+                  <button class="btn primary" onclick="saveKey()">💾 Lưu key này</button>
+                  <button class="btn ghost" onclick="testKey()">⚡ Kiểm tra kết nối</button>
+                </div>
+                <div class="keyStatus" id="keyStatus"><span class="dot"></span><span class="msg">Chưa kiểm tra</span>
+                </div>
+              </div>
+              <div>
+                <h4 style="margin-bottom:10px">Key đã lưu trên máy này</h4>
+                <div class="keyList" id="keyList"></div>
+                <div class="callout" style="margin-top:14px"><b>Lưu ý:</b> nếu dùng máy dùng chung/máy công cộng, hãy
+                  xoá key trước khi rời đi.</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bước 3 — nộp file & nhận xét -->
+          <div class="panel demoStep" data-step="3" id="stepUpload">
+            <div class="demoStepHead"><span class="demoNum">3</span>
+              <div>
+                <h3>Tải file HTML lên &amp; nhận xét</h3>
+                <p>AI đọc mã nguồn rồi góp ý về <b>nội dung</b> và <b>trình bày</b>. Nộp vào thư viện chung là tuỳ
+                  thầy/cô.</p>
+              </div>
+            </div>
+            <label for="projectName">Tên dự án</label>
+            <input type="text" id="projectName" placeholder="VD: Xưởng đề ôn tập Hình học 11">
+            <div class="dropZone" id="dropZone" tabindex="0" role="button"
+              aria-label="Chọn hoặc kéo thả file HTML">
+              <div class="big">📤</div>
+              <b>Kéo thả file .html vào đây, hoặc bấm để chọn file</b>
+              <p style="color:var(--muted);font-size:12.5px;margin-top:6px">Chỉ chấp nhận file .html/.htm, tối đa 2MB.
+              </p>
+              <input type="file" id="fileInput" accept=".html,.htm" class="visually-hidden">
+            </div>
+            <div class="pickedFile" id="pickedFile" hidden></div>
+            <div class="actions" id="demoActions" hidden>
+              <button class="btn primary" id="btnReview">🤖 Nhờ AI nhận xét</button>
+              <button class="btn secondary" id="btnSubmit">📤 Nộp vào thư viện chung</button>
+            </div>
+            <div id="demoReview"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="gallery">
+        <div class="container">
+          <div class="sectionHead">
+            <div>
+              <span class="kicker">📚 Học từ đồng nghiệp</span>
+              <h2 style="margin-top:10px">Dự án đã nộp</h2>
+              <p id="galleryNote">Bài nộp sau nằm trên đầu. Bấm để xem trước sản phẩm hoặc đọc nhận xét của AI.</p>
+            </div>
+            <button class="btn ghost btnSm" id="btnRefreshGallery">🔄 Tải lại</button>
+          </div>
+          <div class="galleryList" id="galleryList"></div>
         </div>
       </section>
 
@@ -163,8 +238,7 @@
           </div>
           <div>
             <h4>Lộ trình</h4>
-            <p>• Chặng 1: Hiểu AI<br>• Chặng 2: Viết prompt<br>• Chặng 3: Tạo sản phẩm<br>• Chặng 4: Chia sẻ &amp; an
-              toàn</p>
+            <p id="footerJourney"></p>
           </div>
           <div>
             <h4>Nguồn học nhanh</h4>
@@ -178,7 +252,7 @@
     <!-- ============================================================ CHẶNG 1 ============================================================ -->
     <div class="page" data-page="c1-s1" data-chang="c1">
       <div class="container">
-        <span class="stageLabel">🧭 Chặng 1 / 4 · Bước 1/3</span>
+        <span class="stageLabel" data-auto></span>
         <div class="sectionHead">
           <div>
             <h2>Claude trong 5 phút</h2>
@@ -192,12 +266,16 @@
             Chat bình thường, hay cần dựng hẳn một Project/Skill riêng cho công việc đang lặp lại — quyết định đó ảnh
             hưởng tới cả 3 chặng sau.</p>
         </div>
+        <div class="pageDoneRow">
+          <label class="tickItem chDoneLabel"><input type="checkbox" class="stepDoneBox"
+              data-step="c1-s1"> Tôi đã hoàn thành bước này</label>
+        </div>
       </div>
     </div>
 
     <div class="page" data-page="c1-s2" data-chang="c1">
       <div class="container">
-        <span class="stageLabel">🧭 Chặng 1 / 4 · Bước 2/3</span>
+        <span class="stageLabel" data-auto></span>
         <div class="sectionHead">
           <div>
             <h2>AI phổ biến trong giáo dục: công cụ nào hợp việc nào?</h2>
@@ -206,12 +284,16 @@
           </div>
         </div>
         <div class="aiGrid cards" id="aiGrid"></div>
+        <div class="pageDoneRow">
+          <label class="tickItem chDoneLabel"><input type="checkbox" class="stepDoneBox"
+              data-step="c1-s2"> Tôi đã hoàn thành bước này</label>
+        </div>
       </div>
     </div>
 
     <div class="page" data-page="c1-s3" data-chang="c1">
       <div class="container">
-        <span class="stageLabel">🧭 Chặng 1 / 4 · Bước 3/3</span>
+        <span class="stageLabel" data-auto></span>
         <div class="sectionHead">
           <div>
             <h2>Skill hay Project — dùng cái nào?</h2>
@@ -226,8 +308,8 @@
             hóa hồ sơ chuyên môn → đây là việc của Skill. Cách đóng gói Skill nằm ở Chặng 3.</div>
         </div>
         <div class="pageDoneRow">
-          <label class="tickItem chDoneLabel"><input type="checkbox" class="chDoneBox" data-ch="c1"> Tôi đã hoàn thành
-            chặng này</label>
+          <label class="tickItem chDoneLabel"><input type="checkbox" class="stepDoneBox"
+              data-step="c1-s3"> Tôi đã hoàn thành bước này</label>
         </div>
       </div>
     </div>
@@ -235,7 +317,7 @@
     <!-- ============================================================ CHẶNG 2 ============================================================ -->
     <div class="page" data-page="c2-s1" data-chang="c2">
       <div class="container">
-        <span class="stageLabel">✍️ Chặng 2 / 4 · Bước 1/2</span>
+        <span class="stageLabel" data-auto></span>
         <div class="sectionHead">
           <div>
             <h2>Công thức 6 phần để AI hiểu đúng việc</h2>
@@ -255,12 +337,16 @@
                 nào.</span></div>
           </div>
         </div>
+        <div class="pageDoneRow">
+          <label class="tickItem chDoneLabel"><input type="checkbox" class="stepDoneBox"
+              data-step="c2-s1"> Tôi đã hoàn thành bước này</label>
+        </div>
       </div>
     </div>
 
     <div class="page" data-page="c2-s2" data-chang="c2">
       <div class="container">
-        <span class="stageLabel">✍️ Chặng 2 / 4 · Bước 2/2</span>
+        <span class="stageLabel" data-auto></span>
         <div class="sectionHead">
           <div>
             <h2>📋 Ngân hàng 16 prompt cho công việc thật</h2>
@@ -270,8 +356,8 @@
         <div class="tabs" id="promptTabs"></div>
         <div class="promptGrid" id="promptGrid"></div>
         <div class="pageDoneRow">
-          <label class="tickItem chDoneLabel"><input type="checkbox" class="chDoneBox" data-ch="c2"> Tôi đã hoàn thành
-            chặng này</label>
+          <label class="tickItem chDoneLabel"><input type="checkbox" class="stepDoneBox"
+              data-step="c2-s2"> Tôi đã hoàn thành bước này</label>
         </div>
       </div>
     </div>
@@ -279,7 +365,7 @@
     <!-- ============================================================ CHẶNG 3 ============================================================ -->
     <div class="page" data-page="c3-s1" data-chang="c3">
       <div class="container">
-        <span class="stageLabel">🛠️ Chặng 3 / 4 · Bước 1/6</span>
+        <span class="stageLabel" data-auto></span>
         <div class="sectionHead">
           <div>
             <h2>Cách 1 — Dựng công cụ HTML</h2>
@@ -311,12 +397,16 @@
           <div class="callout" style="margin-top:14px"><b>Quy tắc vàng:</b> HTML một file rất hợp để <b>luyện tập</b>,
             nhưng không phù hợp cho <b>thi lấy điểm</b> vì đáp án nằm trong mã nguồn phía người dùng.</div>
         </div>
+        <div class="pageDoneRow">
+          <label class="tickItem chDoneLabel"><input type="checkbox" class="stepDoneBox"
+              data-step="c3-s1"> Tôi đã hoàn thành bước này</label>
+        </div>
       </div>
     </div>
 
     <div class="page" data-page="c3-s2" data-chang="c3">
       <div class="container">
-        <span class="stageLabel">🛠️ Chặng 3 / 4 · Bước 2/6</span>
+        <span class="stageLabel" data-auto></span>
         <div class="sectionHead">
           <div>
             <h2>Cách 2 — Đóng gói thành Skill</h2>
@@ -337,12 +427,16 @@
           <button class="btn secondary" style="margin-top:14px" onclick="copySkillStarter()">📋 Sao chép prompt tạo
             Skill</button>
         </div>
+        <div class="pageDoneRow">
+          <label class="tickItem chDoneLabel"><input type="checkbox" class="stepDoneBox"
+              data-step="c3-s2"> Tôi đã hoàn thành bước này</label>
+        </div>
       </div>
     </div>
 
     <div class="page" data-page="c3-s3" data-chang="c3">
       <div class="container">
-        <span class="stageLabel">🛠️ Chặng 3 / 4 · Bước 3/6</span>
+        <span class="stageLabel" data-auto></span>
         <div class="sectionHead">
           <div>
             <span class="kicker">🧪 Học qua 8 tình huống thật</span>
@@ -354,12 +448,16 @@
           <div class="situationNav" id="situationNav"></div>
           <div class="situationDetail panel" id="situationDetail"></div>
         </div>
+        <div class="pageDoneRow">
+          <label class="tickItem chDoneLabel"><input type="checkbox" class="stepDoneBox"
+              data-step="c3-s3"> Tôi đã hoàn thành bước này</label>
+        </div>
       </div>
     </div>
 
     <div class="page" data-page="c3-s4" data-chang="c3">
       <div class="container">
-        <span class="stageLabel">🛠️ Chặng 3 / 4 · Bước 4/6</span>
+        <span class="stageLabel" data-auto></span>
         <div class="sectionHead">
           <div>
             <h2>📚 Thư viện mẫu tham khảo</h2>
@@ -375,12 +473,16 @@
             style="max-width:320px;padding:11px 13px;border-radius:12px;border:1px solid var(--line);background:var(--panel)">
         </div>
         <div class="sampleGrid" id="sampleGrid"></div>
+        <div class="pageDoneRow">
+          <label class="tickItem chDoneLabel"><input type="checkbox" class="stepDoneBox"
+              data-step="c3-s4"> Tôi đã hoàn thành bước này</label>
+        </div>
       </div>
     </div>
 
     <div class="page" data-page="c3-s5" data-chang="c3">
       <div class="container">
-        <span class="stageLabel">🛠️ Chặng 3 / 4 · Bước 5/6</span>
+        <span class="stageLabel" data-auto></span>
         <div class="sectionHead">
           <div>
             <h2>🎯 Góc dành riêng cho bộ môn</h2>
@@ -394,34 +496,9 @@
             style="width:100%;max-width:340px;margin-top:6px;padding:11px 13px;border-radius:12px;border:1px solid var(--line);background:var(--panel)"></select>
           <div id="subjectIdeas"></div>
         </div>
-      </div>
-    </div>
-
-    <div class="page" data-page="c3-s6" data-chang="c3">
-      <div class="container">
-        <span class="stageLabel">🛠️ Chặng 3 / 4 · Bước 6/6</span>
-        <div class="sectionHead">
-          <div>
-            <span class="kicker">🙋 Sản phẩm của bạn</span>
-            <h2 style="margin-top:10px">Nộp sản phẩm HTML — để AI chấm và góp ý</h2>
-            <p>File được lưu ngay trên trình duyệt của bạn (chưa lên mạng). Muốn AI góp ý, dùng key bạn thêm ở Chặng 4.
-            </p>
-          </div>
-        </div>
-        <div class="panel">
-          <div class="dropZone" id="dropZone" tabindex="0" role="button"
-            aria-label="Chọn hoặc kéo thả file HTML để nộp">
-            <div class="big">📤</div>
-            <b>Kéo thả file .html vào đây, hoặc bấm để chọn file</b>
-            <p style="color:var(--muted);font-size:12.5px;margin-top:6px">Chỉ chấp nhận file .html/.htm, tối đa 5MB.
-              File lưu cục bộ, không tự động tải lên đâu khác.</p>
-            <input type="file" id="fileInput" accept=".html,.htm" class="visually-hidden">
-          </div>
-          <div class="subList" id="submissionList"></div>
-        </div>
         <div class="pageDoneRow">
-          <label class="tickItem chDoneLabel"><input type="checkbox" class="chDoneBox" data-ch="c3"> Tôi đã hoàn thành
-            chặng này</label>
+          <label class="tickItem chDoneLabel"><input type="checkbox" class="stepDoneBox"
+              data-step="c3-s5"> Tôi đã hoàn thành bước này</label>
         </div>
       </div>
     </div>
@@ -429,7 +506,7 @@
     <!-- ============================================================ CHẶNG 4 ============================================================ -->
     <div class="page" data-page="c4-s1" data-chang="c4">
       <div class="container">
-        <span class="stageLabel">🔒 Chặng 4 / 4 · Bước 1/5</span>
+        <span class="stageLabel" data-auto></span>
         <div class="sectionHead">
           <div>
             <h2>API key — hiểu như "thẻ thư viện"</h2>
@@ -455,52 +532,16 @@
             </div>
           </div>
         </div>
-      </div>
-    </div>
-
-    <div class="page" data-page="c4-s2" data-chang="c4">
-      <div class="container">
-        <span class="stageLabel">🔒 Chặng 4 / 4 · Bước 2/5</span>
-        <div class="sectionHead">
-          <div>
-            <span class="kicker">🔑 Thêm key của riêng bạn</span>
-            <h2 style="margin-top:10px">Cấu hình API key &amp; chọn model</h2>
-            <p>Key chỉ lưu trong trình duyệt này (localStorage), gửi thẳng tới nhà cung cấp bạn chọn — không đi qua máy
-              chủ nào khác, kể cả máy chủ của trang này.</p>
-          </div>
-        </div>
-        <div class="panel apiPanel">
-          <div>
-            <div class="providerRow" id="providerRow"></div>
-            <div id="providerHint" style="font-size:12.5px;color:var(--muted);margin-bottom:10px"></div>
-            <label style="font-weight:800;font-size:13px;color:var(--muted)">API key</label>
-            <div class="keyRow">
-              <input type="password" id="keyInput" placeholder="Dán API key vào đây" autocomplete="off">
-              <button class="btn secondary btnSm" onclick="toggleKeyVisibility()" id="toggleKeyBtn"
-                aria-label="Hiện/ẩn key">👁️</button>
-            </div>
-            <label style="font-weight:800;font-size:13px;color:var(--muted)">Model</label>
-            <select id="modelSelect"
-              style="width:100%;margin-top:6px;margin-bottom:12px;padding:11px 13px;border-radius:12px;border:1px solid var(--line);background:var(--panel)"></select>
-            <div class="actions">
-              <button class="btn primary" onclick="saveKey()">💾 Lưu key này</button>
-              <button class="btn ghost" onclick="testKey()">⚡ Kiểm tra kết nối</button>
-            </div>
-            <div class="keyStatus" id="keyStatus"><span class="dot"></span><span>Chưa kiểm tra</span></div>
-          </div>
-          <div>
-            <h4 style="margin-bottom:10px">Key đã lưu trên máy này</h4>
-            <div class="keyList" id="keyList"></div>
-            <div class="callout" style="margin-top:14px"><b>Lưu ý:</b> nếu dùng máy dùng chung/máy công cộng, hãy xoá
-              key trước khi rời đi.</div>
-          </div>
+        <div class="pageDoneRow">
+          <label class="tickItem chDoneLabel"><input type="checkbox" class="stepDoneBox"
+              data-step="c4-s1"> Tôi đã hoàn thành bước này</label>
         </div>
       </div>
     </div>
 
     <div class="page" data-page="c4-s3" data-chang="c4">
       <div class="container">
-        <span class="stageLabel">🔒 Chặng 4 / 4 · Bước 3/5</span>
+        <span class="stageLabel" data-auto></span>
         <div class="sectionHead">
           <div>
             <h2>🚀 Đưa HTML lên mạng bằng GitHub Pages</h2>
@@ -525,12 +566,16 @@
         </div>
         <div class="callout" style="margin-top:14px"><b>Lưu ý:</b> Google Drive có thể phát file, nhưng link Drive không
           biến HTML thành website chạy trực tiếp. GitHub Pages phù hợp hơn để có địa chỉ web cố định.</div>
+        <div class="pageDoneRow">
+          <label class="tickItem chDoneLabel"><input type="checkbox" class="stepDoneBox"
+              data-step="c4-s3"> Tôi đã hoàn thành bước này</label>
+        </div>
       </div>
     </div>
 
     <div class="page" data-page="c4-s4" data-chang="c4">
       <div class="container">
-        <span class="stageLabel">🔒 Chặng 4 / 4 · Bước 4/5</span>
+        <span class="stageLabel" data-auto></span>
         <div class="sectionHead">
           <div>
             <h2>📥 Tài liệu tập huấn tải về</h2>
@@ -540,12 +585,16 @@
         <div class="panel">
           <div class="resourcesGrid" id="resourcesGrid"></div>
         </div>
+        <div class="pageDoneRow">
+          <label class="tickItem chDoneLabel"><input type="checkbox" class="stepDoneBox"
+              data-step="c4-s4"> Tôi đã hoàn thành bước này</label>
+        </div>
       </div>
     </div>
 
     <div class="page" data-page="c4-s5" data-chang="c4">
       <div class="container">
-        <span class="stageLabel">🔒 Chặng 4 / 4 · Bước 5/5</span>
+        <span class="stageLabel" data-auto></span>
         <div class="sectionHead">
           <div>
             <h2>❓ FAQ: AI, HTML &amp; an toàn số</h2>
@@ -556,24 +605,13 @@
           <div id="faqList"></div>
         </div>
         <div class="pageDoneRow">
-          <label class="tickItem chDoneLabel"><input type="checkbox" class="chDoneBox" data-ch="c4"> Tôi đã hoàn thành
-            chặng này</label>
+          <label class="tickItem chDoneLabel"><input type="checkbox" class="stepDoneBox"
+              data-step="c4-s5"> Tôi đã hoàn thành bước này</label>
         </div>
       </div>
     </div>
 
   </main>
-
-  <div class="bottomNav" style="padding-left:0;padding-right:0">
-    <div class="container nav">
-      <button class="btn ghost navBtn" id="navBack">← Quay lại</button>
-      <div class="navCenter">
-        <div class="navCenterLabel" id="navCenterLabel"></div>
-        <div class="pageDots" id="pageDots"></div>
-      </div>
-      <button class="btn primary navBtn" id="navNext">Tiếp theo →</button>
-    </div>
-  </div>
 
   <div class="toast" id="toast">Đã sao chép!</div>
 

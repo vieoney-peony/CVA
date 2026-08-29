@@ -41,15 +41,28 @@ function toggleTheme() {
 }
 (function () { const t = localStorage.getItem("cvaTheme"); if (t) document.documentElement.dataset.theme = t; })();
 
-/* ---------------------------------------------------------- journey / progress */
-const JOURNEY_KEY = "cvaJourneyDone";
-function getJourneyDone() {
-  try { return JSON.parse(localStorage.getItem(JOURNEY_KEY) || "{}"); } catch (e) { return {}; }
+/* ----------------------------------------------------------- journey / progress
+   Nguồn sự thật duy nhất là cvaStepDone — người dùng tick từng BƯỚC.
+   Trạng thái của cả CHẶNG được suy ra: xong khi mọi bước của chặng đã tick. */
+const STEP_KEY = "cvaStepDone";
+function getStepDone() {
+  try { return JSON.parse(localStorage.getItem(STEP_KEY) || "{}"); } catch (e) { return {}; }
 }
-function setJourneyDone(id, val) {
-  const d = getJourneyDone(); d[id] = val;
-  localStorage.setItem(JOURNEY_KEY, JSON.stringify(d));
+function setStepDone(pageId, val) {
+  const d = getStepDone();
+  if (val) d[pageId] = true; else delete d[pageId];
+  localStorage.setItem(STEP_KEY, JSON.stringify(d));
   renderJourneyProgress();
+  renderStepCircles();
+}
+function getJourneyDone() {
+  const steps = getStepDone();
+  const out = {};
+  JOURNEY.forEach(j => {
+    const pages = PAGES.filter(p => p.chang === j.id);
+    out[j.id] = pages.length > 0 && pages.every(p => steps[p.id]);
+  });
+  return out;
 }
 function renderJourneyProgress() {
   const done = getJourneyDone();
@@ -57,7 +70,8 @@ function renderJourneyProgress() {
   document.getElementById("journeyFill").style.width = (n / JOURNEY.length * 100) + "%";
   document.getElementById("journeyPct").textContent = `${n}/${JOURNEY.length} chặng`;
   document.querySelectorAll(".stepPill").forEach(p => p.classList.toggle("done", !!done[p.dataset.ch]));
-  document.querySelectorAll(".chDoneBox").forEach(cb => { cb.checked = !!done[cb.dataset.ch]; });
+  const steps = getStepDone();
+  document.querySelectorAll(".stepDoneBox").forEach(cb => { cb.checked = !!steps[cb.dataset.step]; });
 }
 
 /* ---------------------------------------------------------- nav: step pills + drawer */
@@ -70,12 +84,17 @@ function renderNav() {
   const drawerEl = document.getElementById("drawerNav");
   drawerEl.innerHTML = `
     <button type="button" data-goto-home>🏠 Trang chủ</button>
+    <button type="button" data-goto-home data-scroll-to="demo">⚡ Demo &amp; Thư viện dự án</button>
     <div class="grpLabel">Lộ trình 4 chặng</div>
     ${JOURNEY.map(j => `<button type="button" data-ch="${j.id}">${j.icon} ${j.n}. ${j.label}</button>`).join("")}
     <div class="grpLabel">Khác</div>
     <button type="button" data-page="c4-s4">📥 Tài liệu tải về</button>
     <button type="button" data-page="c4-s5">❓ FAQ</button>
   `;
+
+  // footer chép tay 4 chặng thì mỗi lần đổi JOURNEY lại lệch — render luôn cho chắc
+  document.getElementById("footerJourney").innerHTML =
+    JOURNEY.map(j => `• Chặng ${j.n}: ${escapeHtml(j.label)}`).join("<br>");
 }
 
 function openDrawer() {
@@ -92,10 +111,10 @@ document.addEventListener("keydown", e => {
   if (e.key === "Escape") { closeDrawer(); closeSearch(); }
 });
 
-/* chặng "đã hoàn thành" checkboxes (inserted into DOM via data attr already in HTML) */
-function setupChDoneBoxes() {
-  document.querySelectorAll(".chDoneBox").forEach(cb => {
-    cb.addEventListener("change", () => setJourneyDone(cb.dataset.ch, cb.checked));
+/* ô tick "đã hoàn thành bước này" ở cuối mỗi page của chặng */
+function setupStepDoneBoxes() {
+  document.querySelectorAll(".stepDoneBox").forEach(cb => {
+    cb.addEventListener("change", () => setStepDone(cb.dataset.step, cb.checked));
   });
 }
 
@@ -132,58 +151,61 @@ function setPagePosition(el, state, instant) {
 
 function renderStage(newIndex) {
   const oldIndex = currentIndex;
-  const animate = oldIndex !== -1 && oldIndex !== newIndex;
+  const changed = oldIndex !== newIndex;
+  const animate = oldIndex !== -1 && changed;
   pageEls.forEach((el, i) => {
     const isMover = animate && (i === oldIndex || i === newIndex);
     const state = i === newIndex ? "pg-active" : (i < newIndex ? "pg-behind" : "pg-ahead");
     setPagePosition(el, state, !isMover);
   });
   currentIndex = newIndex;
+  // Chỉ cuộn về đầu khi THỰC SỰ sang trang khác. Cập nhật thanh điều hướng
+  // (nhãn, vòng tròn) không bao giờ được đụng tới vị trí cuộn của người dùng.
+  if (changed && pageEls[newIndex]) pageEls[newIndex].scrollTop = 0;
   updateChromeForCurrentPage();
 }
 
-/* center short pages (few cards, little text) vertically inside the viewport
-   instead of leaving a big empty gap under them; long pages keep top-align + scroll */
-function centerShortPage(el) {
-  if (!el || !el.dataset.chang) { return; }
-  const inner = el.querySelector(":scope > .container");
-  if (!inner) return;
-  inner.style.paddingTop = "";
-  const extra = el.clientHeight - inner.scrollHeight;
-  inner.style.paddingTop = extra > 60 ? Math.round(extra / 2) + "px" : "";
+/* các bước của chặng đang xem, kèm chỉ số trong PAGES */
+function stepsOfCurrentChang() {
+  const cur = PAGES[currentIndex];
+  if (!cur || !cur.chang) return [];
+  return PAGES.map((p, i) => ({ p, i })).filter(x => x.p.chang === cur.chang);
 }
-window.addEventListener("resize", () => centerShortPage(pageEls[currentIndex]));
-document.addEventListener("click", () => setTimeout(() => centerShortPage(pageEls[currentIndex]), 0));
-document.addEventListener("change", () => setTimeout(() => centerShortPage(pageEls[currentIndex]), 0));
+
+function renderStepCircles() {
+  const el = document.getElementById("stepCircles");
+  if (!el) return;
+  const steps = stepsOfCurrentChang();
+  if (!steps.length) { el.innerHTML = ""; return; }
+  const done = getStepDone();
+  el.innerHTML = steps.map((x, n) => {
+    const cls = [done[x.p.id] ? "done" : "", x.i === currentIndex ? "on" : ""].filter(Boolean).join(" ");
+    return `<button type="button" class="stepCircle ${cls}" data-idx="${x.i}"
+      aria-label="Bước ${n + 1}: ${escapeHtml(x.p.label)}"${x.i === currentIndex ? ' aria-current="step"' : ""}>
+      <span class="stepNum">${n + 1}</span><span class="stepTip">${escapeHtml(x.p.label)}</span>
+    </button>`;
+  }).join("");
+}
 
 function updateChromeForCurrentPage() {
   const cur = PAGES[currentIndex];
   document.querySelectorAll(".stepPill").forEach(p => p.classList.toggle("active", !!cur.chang && p.dataset.ch === cur.chang));
-  document.querySelector(".bottomNav").classList.toggle("bn-hidden", !cur.chang);
+  document.getElementById("subnav").classList.toggle("sn-hidden", !cur.chang);
 
-  const backBtn = document.getElementById("navBack");
-  const nextBtn = document.getElementById("navNext");
-  backBtn.disabled = currentIndex === 0;
+  document.getElementById("navBack").disabled = currentIndex === 0;
   const isLast = currentIndex === PAGES.length - 1;
-  nextBtn.textContent = isLast ? "🏠 Về trang chủ" : "Tiếp theo →";
+  document.getElementById("navNext").textContent = isLast ? "🏠 Về trang chủ" : "Tiếp theo →";
 
-  const label = document.getElementById("navCenterLabel");
-  const dotsEl = document.getElementById("pageDots");
-  if (!cur.chang) {
-    label.textContent = "Trang chủ — chọn một chặng để bắt đầu";
-    dotsEl.innerHTML = "";
-  } else {
+  renderStepCircles();
+
+  // nhãn "Chặng n / 4 · Bước x/y" tính từ DOM, không chép tay trong HTML nữa
+  const auto = pageEls[currentIndex] && pageEls[currentIndex].querySelector(".stageLabel[data-auto]");
+  if (auto && cur.chang) {
     const jr = JOURNEY.find(j => j.id === cur.chang);
-    const stepsOfChang = PAGES.map((p, i) => ({ p, i })).filter(x => x.p.chang === cur.chang);
-    const posInChang = stepsOfChang.findIndex(x => x.i === currentIndex) + 1;
-    label.textContent = `${jr.icon} Chặng ${jr.n} · Bước ${posInChang}/${stepsOfChang.length} · ${cur.label}`;
-    dotsEl.innerHTML = stepsOfChang.map(x => {
-      const cls = x.i === currentIndex ? "on" : (x.i < currentIndex ? "past" : "");
-      return `<button type="button" class="dotBtn ${cls}" data-idx="${x.i}" aria-label="${escapeHtml(PAGES[x.i].label)}"></button>`;
-    }).join("");
+    const steps = stepsOfCurrentChang();
+    const pos = steps.findIndex(x => x.i === currentIndex) + 1;
+    auto.textContent = `${jr.icon} Chặng ${jr.n} / ${JOURNEY.length} · Bước ${pos}/${steps.length}`;
   }
-  const el = pageEls[currentIndex];
-  if (el) { el.scrollTop = 0; centerShortPage(el); }
 }
 
 function handleHashChange() {
@@ -192,8 +214,9 @@ function handleHashChange() {
   renderStage(idx === -1 ? 0 : idx);
 }
 function setHash(id) {
+  // Hash đã đúng rồi thì không làm gì — gọi lại handleHashChange() ở đây
+  // chính là nguyên nhân bấm lại pill của chặng đang xem bị nhảy về đầu trang.
   if (("#" + id) !== location.hash) location.hash = id;
-  else handleHashChange();
 }
 function navigateToIndex(idx) {
   if (idx < 0 || idx >= PAGES.length) return;
@@ -216,16 +239,26 @@ document.addEventListener("click", (e) => {
   const gc = e.target.closest("[data-goto-chang]");
   if (gc) { goToChang(gc.dataset.gotoChang); return; }
   const gh = e.target.closest("[data-goto-home]");
-  if (gh) { goToPage("home"); closeDrawer(); return; }
+  if (gh) {
+    goToPage("home"); closeDrawer();
+    // mục drawer "Demo & Thư viện" vừa về trang chủ vừa cuộn tới khối demo
+    const target = gh.dataset.scrollTo;
+    if (target) requestAnimationFrame(() => scrollToSection(target));
+    return;
+  }
   const dp = e.target.closest("[data-page]");
   if (dp) { goToPage(dp.dataset.page); closeDrawer(); closeSearch(); return; }
   const dch = e.target.closest(".drawerNav [data-ch]");
   if (dch) { goToChang(dch.dataset.ch); closeDrawer(); return; }
   const sc = e.target.closest("[data-scroll-to]");
-  if (sc) { document.getElementById(sc.dataset.scrollTo)?.scrollIntoView({ behavior: "smooth", block: "start" }); return; }
-  const dot = e.target.closest(".pageDots .dotBtn");
-  if (dot) { navigateToIndex(+dot.dataset.idx); return; }
+  if (sc) { scrollToSection(sc.dataset.scrollTo); return; }
+  const circle = e.target.closest(".stepCircle");
+  if (circle) { navigateToIndex(+circle.dataset.idx); return; }
 });
+
+function scrollToSection(id) {
+  document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
 
 /* keyboard: ← → to move between pages (ignored while typing in a field) */
 document.addEventListener("keydown", (e) => {
@@ -252,21 +285,67 @@ function setupSwipe() {
   }, { passive: true });
 }
 
-/* ---------------------------------------------------------- AI Compass */
-function runCompass() {
-  const goal = document.getElementById("goal").value;
-  const level = document.getElementById("level").value;
-  const time = document.getElementById("time").value;
-  const map = {
-    c1: ["Bắt đầu ở Chặng 1 · Hiểu AI", "Xem AI nào hợp việc gì và khi nào nên dùng Skill, trước khi bắt tay vào làm.", "c1-s1"],
-    c2: ["Bắt đầu ở Chặng 2 · Viết prompt", "Dùng công thức 6 phần rồi thử ngay một prompt trong ngân hàng 16 prompt.", "c2-s1"],
-    c3: ["Bắt đầu ở Chặng 3 · Tạo sản phẩm", "Chọn một học liệu nhỏ đã có sẵn, dùng prompt khung 'một file HTML', rồi kiểm thử trước khi thêm AI.", "c3-s1"],
-    c4: ["Bắt đầu ở Chặng 4 · Chia sẻ & an toàn", "Nắm 5 nguyên tắc an toàn, tự thêm API key của bạn rồi thử GitHub Pages.", "c4-s1"]
+/* ============================================================
+   DEMO — BƯỚC 1: HỒ SƠ GIÁO VIÊN
+   Nhớ trong localStorage để lần sau khỏi nhập lại; bước 2 và 3
+   khoá cho tới khi đủ họ tên + lớp + tổ.
+   ============================================================ */
+const TEACHER_KEY = "cvaTeacher";
+
+function getTeacher() {
+  try { return JSON.parse(localStorage.getItem(TEACHER_KEY) || "{}"); } catch (e) { return {}; }
+}
+function teacherIsComplete(t) {
+  return !!(t && t.name && t.className && t.to);
+}
+
+function initTeacherForm() {
+  const nameEl = document.getElementById("teacherName");
+  const classEl = document.getElementById("teacherClass");
+  const toEl = document.getElementById("teacherTo");
+
+  classEl.innerHTML = `<option value="">— Chọn lớp —</option>` + CLASSES.map(k =>
+    `<option disabled>── Khối ${k.khoi} ──</option>` +
+    k.lop.map(l => `<option value="${escapeHtml(l)}">${escapeHtml(l)}</option>`).join("")
+  ).join("");
+
+  // 13 tổ chuyên môn dùng chung nguồn với trang "Góc bộ môn"
+  toEl.innerHTML = `<option value="">— Chọn tổ —</option>` +
+    Object.keys(subjectIdeas).map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join("");
+
+  const saved = getTeacher();
+  nameEl.value = saved.name || "";
+  classEl.value = saved.className || "";
+  toEl.value = saved.to || "";
+
+  [nameEl, classEl, toEl].forEach(el => {
+    el.addEventListener("input", saveTeacher);
+    el.addEventListener("change", saveTeacher);
+  });
+  applyTeacherGate();
+}
+
+function saveTeacher() {
+  const t = {
+    name: document.getElementById("teacherName").value.trim(),
+    className: document.getElementById("teacherClass").value,
+    to: document.getElementById("teacherTo").value
   };
-  const m = map[goal];
-  document.getElementById("compassResult").innerHTML =
-    `<h3>${m[0]}</h3><p>${m[1]}</p><p style="font-size:12.5px"><b>Mức hiện tại:</b> ${escapeHtml(level)} · <b>Quỹ thời gian:</b> ${escapeHtml(time)}</p>
-     <button class="btn secondary" data-page="${m[2]}" type="button">Đi tới nội dung →</button>`;
+  localStorage.setItem(TEACHER_KEY, JSON.stringify(t));
+  applyTeacherGate();
+}
+
+function applyTeacherGate() {
+  const t = getTeacher();
+  const ok = teacherIsComplete(t);
+  ["stepKey", "stepUpload"].forEach(id => {
+    document.getElementById(id).setAttribute("aria-disabled", ok ? "false" : "true");
+  });
+  const hint = document.getElementById("teacherHint");
+  hint.className = ok ? "demoHint" : "demoHint warn";
+  hint.textContent = ok
+    ? `✅ Chào ${t.name} — tổ ${t.to}, lớp ${t.className}. Mời thầy/cô sang bước 2.`
+    : "↑ Nhập đủ họ tên, lớp dạy và tổ chuyên môn để mở bước 2 và 3.";
 }
 
 /* ---------------------------------------------------------- journey cards (hero grid) */
@@ -489,12 +568,20 @@ function getSavedKeys() {
 }
 function setSavedKeys(obj) { localStorage.setItem(KEYS_STORAGE, JSON.stringify(obj)); }
 
+/* Hàng nút provider chỉ dựng MỘT lần. Đổi provider sau đó chỉ đổi class +
+   nội dung ô hint/model — không ghi đè innerHTML cả khối, vì làm vậy sẽ
+   xoá trắng ô key đang gõ và làm trang giật về đầu. */
 function renderProviderRow() {
   document.getElementById("providerRow").innerHTML = PROVIDERS.map(p =>
-    `<button class="providerBtn ${p.id === currentProviderId ? "active" : ""}" data-p="${p.id}">${p.name}</button>`).join("");
+    `<button class="providerBtn" data-p="${p.id}">${escapeHtml(p.name)}</button>`).join("");
+  applyProvider();
+}
+function applyProvider() {
   const p = PROVIDERS.find(x => x.id === currentProviderId);
+  document.querySelectorAll("#providerRow .providerBtn").forEach(b =>
+    b.classList.toggle("active", b.dataset.p === currentProviderId));
   document.getElementById("providerHint").innerHTML =
-    `${escapeHtml(p.tagline)} · <a href="${p.keyLink}" target="_blank" rel="noopener">${escapeHtml(p.keyHint)} ↗</a>`;
+    `${escapeHtml(p.tagline)} · <a href="${escapeHtml(p.keyLink)}" target="_blank" rel="noopener">${escapeHtml(p.keyHint)} ↗</a>`;
   renderModelSelect();
   const saved = getSavedKeys()[currentProviderId];
   document.getElementById("keyInput").value = saved ? saved.key : "";
@@ -505,10 +592,11 @@ function renderModelSelect() {
   const p = PROVIDERS.find(x => x.id === currentProviderId);
   document.getElementById("modelSelect").innerHTML = p.models.map(m => `<option value="${m.id}">${escapeHtml(m.label)}</option>`).join("");
 }
+/* chỉ đổi class + text của 2 phần tử có sẵn, chiều cao không đổi */
 function setKeyStatus(state, msg) {
   const el = document.getElementById("keyStatus");
-  const dot = state === "ok" ? "ok" : state === "bad" ? "bad" : "";
-  el.innerHTML = `<span class="dot ${dot}"></span><span>${msg || "Chưa kiểm tra"}</span>`;
+  el.querySelector(".dot").className = "dot " + (state === "ok" ? "ok" : state === "bad" ? "bad" : "");
+  el.querySelector(".msg").textContent = msg || "Chưa kiểm tra";
 }
 function toggleKeyVisibility() {
   const inp = document.getElementById("keyInput");
@@ -548,7 +636,7 @@ function renderKeyList() {
 }
 document.addEventListener("click", (e) => {
   const pb = e.target.closest("#providerRow .providerBtn");
-  if (pb) { currentProviderId = pb.dataset.p; renderProviderRow(); return; }
+  if (pb) { currentProviderId = pb.dataset.p; applyProvider(); return; }
   const del = e.target.closest("[data-del]");
   if (del) { deleteKey(del.dataset.del); return; }
 });
@@ -630,11 +718,17 @@ async function testKey() {
    NỘP SẢN PHẨM HTML + AI CHẤM GÓP Ý
    Lưu bằng IndexedDB trên trình duyệt của người dùng.
    ============================================================ */
-const DB_NAME = "cvaSubmissions", DB_STORE = "files";
+/* Store "projects" (v2) dùng lược đồ mới — teacherName/projectName/html.
+   Store "files" của bản cũ có lược đồ khác nên bỏ hẳn, không đọc tới. */
+const DB_NAME = "cvaSubmissions", DB_STORE = "projects";
 function openDB() {
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, 1);
-    req.onupgradeneeded = () => { req.result.createObjectStore(DB_STORE, { keyPath: "id" }); };
+    const req = indexedDB.open(DB_NAME, 2);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(DB_STORE)) db.createObjectStore(DB_STORE, { keyPath: "id" });
+      if (db.objectStoreNames.contains("files")) db.deleteObjectStore("files");
+    };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
   });
@@ -657,15 +751,41 @@ async function dbPut(rec) {
     tx.onerror = () => reject(tx.error);
   });
 }
-async function dbDelete(id) {
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(DB_STORE, "readwrite");
-    tx.objectStore(DB_STORE).delete(id);
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
+/* ---- lớp bọc lưu trữ: Worker nếu có cấu hình, không thì IndexedDB ---- */
+function galleryIsShared() { return typeof WORKER_URL === "string" && WORKER_URL.length > 0; }
+
+async function galleryList() {
+  if (!galleryIsShared()) return dbAll();
+  const res = await fetch(WORKER_URL + "/list");
+  if (!res.ok) throw new Error("HTTP " + res.status);
+  return res.json();
 }
+async function gallerySubmit(rec) {
+  if (!galleryIsShared()) { await dbPut(rec); return rec; }
+  const res = await fetch(WORKER_URL + "/submit", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(rec)
+  });
+  if (!res.ok) {
+    const msg = await res.json().catch(() => ({}));
+    throw new Error(msg.error || "HTTP " + res.status);
+  }
+  return res.json();
+}
+async function galleryFetchFile(id) {
+  if (!galleryIsShared()) {
+    const rec = (await dbAll()).find(r => r.id === id);
+    return rec ? rec.html : null;
+  }
+  const res = await fetch(WORKER_URL + "/file?id=" + encodeURIComponent(id));
+  if (!res.ok) throw new Error("HTTP " + res.status);
+  return res.text();
+}
+
+/* ---- bước 3: chọn file, nhờ AI nhận xét, nộp vào thư viện ---- */
+let pickedDoc = null;   // { name, size, html }
+let pickedReview = "";
 
 function setupDropZone() {
   const dz = document.getElementById("dropZone");
@@ -676,97 +796,173 @@ function setupDropZone() {
   ["dragenter", "dragover"].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add("drag"); }));
   ["dragleave", "drop"].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.remove("drag"); }));
   dz.addEventListener("drop", e => { const f = e.dataTransfer.files[0]; if (f) handleFile(f); });
+
+  document.getElementById("btnReview").addEventListener("click", runReview);
+  document.getElementById("btnSubmit").addEventListener("click", submitToGallery);
+  document.getElementById("btnRefreshGallery").addEventListener("click", () => renderGallery());
 }
+
 async function handleFile(file) {
-  if (!/\.(html?|HTML?)$/.test(file.name)) { toast("Chỉ chấp nhận file .html/.htm"); return; }
-  if (file.size > 5 * 1024 * 1024) { toast("File vượt quá 5MB"); return; }
-  const text = await file.text();
-  const rec = { id: "sub_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7), name: file.name, size: file.size, addedAt: Date.now(), content: text, reviewText: "", reviewAt: 0 };
-  await dbPut(rec);
-  toast("Đã lưu \"" + file.name + "\" trên trình duyệt này");
-  renderSubmissions();
+  if (!/\.html?$/i.test(file.name)) { toast("Chỉ chấp nhận file .html/.htm"); return; }
+  if (file.size > 2 * 1024 * 1024) { toast("File vượt quá 2MB"); return; }
+  pickedDoc = { name: file.name, size: file.size, html: await file.text() };
+  pickedReview = "";
+
+  const info = document.getElementById("pickedFile");
+  info.hidden = false;
+  info.textContent = `📄 ${file.name} · ${formatBytes(file.size)}`;
+  document.getElementById("demoActions").hidden = false;
+  document.getElementById("demoReview").innerHTML = "";
+
+  // gợi ý tên dự án từ tên file nếu giáo viên chưa đặt
+  const nameEl = document.getElementById("projectName");
+  if (!nameEl.value.trim()) nameEl.value = file.name.replace(/\.html?$/i, "").replace(/[-_]+/g, " ");
 }
+
 function currentReviewProvider() {
   const all = getSavedKeys();
   const withKey = PROVIDERS.find(p => all[p.id] && all[p.id].key);
   return withKey ? { provider: withKey, saved: all[withKey.id] } : null;
 }
-async function renderSubmissions() {
-  const list = await dbAll();
-  const el = document.getElementById("submissionList");
-  if (!list.length) { el.innerHTML = `<p style="color:var(--muted);font-size:13px;margin-top:14px">Chưa có sản phẩm nào được nộp.</p>`; return; }
-  el.innerHTML = list.map(r => `
-    <div class="subCard" data-id="${r.id}">
-      <div class="subCardTop">
-        <div><b>${escapeHtml(r.name)}</b><div class="subMeta">${formatBytes(r.size)} · nộp lúc ${fmtDate(r.addedAt)}</div></div>
-        <div class="subActions">
-          <button class="btn secondary btnSm" data-act="preview">👁️ Xem trước</button>
-          <button class="btn secondary btnSm" data-act="download">⬇️ Tải về</button>
-          <button class="btn primary btnSm" data-act="review">🤖 AI chấm góp ý</button>
-          <button class="btn ghost btnSm" data-act="delete">🗑️ Xoá</button>
-        </div>
-      </div>
-      <div class="reviewArea">${r.reviewText ? renderReviewBox(r.reviewText, r.reviewAt) : ""}</div>
-    </div>`).join("");
+
+async function runReview() {
+  if (!pickedDoc) { toast("Chọn file HTML trước đã"); return; }
+  const ctx = currentReviewProvider();
+  if (!ctx) { toast("Lưu API key ở bước 2 trước đã"); scrollToSection("demo"); return; }
+
+  const area = document.getElementById("demoReview");
+  area.innerHTML = `<div class="reviewBox"><span class="spinner"></span> Đang gửi cho AI, vui lòng chờ…</div>`;
+  try {
+    const text = await CALLERS["call" + capitalize(ctx.provider.id)](
+      ctx.saved.key, ctx.saved.model, buildReviewPrompt(pickedDoc.html));
+    pickedReview = text;
+    area.innerHTML = renderReviewBox(text, Date.now());
+  } catch (err) {
+    area.innerHTML = `<div class="reviewBox">⚠️ Không gọi được AI (${escapeHtml(err.message)}). Kiểm tra lại key ở bước 2 và kết nối mạng rồi thử lại.</div>`;
+  }
 }
+
+async function submitToGallery() {
+  const t = getTeacher();
+  if (!teacherIsComplete(t)) { toast("Điền thông tin ở bước 1 trước đã"); scrollToSection("demo"); return; }
+  if (!pickedDoc) { toast("Chọn file HTML trước đã"); return; }
+  const projectName = document.getElementById("projectName").value.trim();
+  if (!projectName) { toast("Đặt tên cho dự án trước đã"); return; }
+
+  const btn = document.getElementById("btnSubmit");
+  btn.disabled = true;
+  try {
+    await gallerySubmit({
+      id: "p_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8),
+      addedAt: Date.now(),
+      teacherName: t.name, className: t.className, to: t.to,
+      projectName, fileName: pickedDoc.name, size: pickedDoc.size,
+      html: pickedDoc.html, reviewText: pickedReview
+    });
+    toast(galleryIsShared() ? "Đã nộp vào thư viện chung" : "Đã lưu trên máy này");
+    await renderGallery();
+    scrollToSection("gallery");
+  } catch (err) {
+    toast("Nộp không thành công: " + err.message);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 function renderReviewBox(text, at) {
   return `<div class="reviewBox"><div class="reviewScore">🤖 Nhận xét của AI · ${fmtDate(at)}</div>${escapeHtml(text)}</div>`;
 }
-document.addEventListener("click", async (e) => {
-  const card = e.target.closest(".subCard"); if (!card) return;
-  const id = card.dataset.id;
-  const act = e.target.closest("[data-act]")?.dataset.act;
-  if (!act) return;
-  const list = await dbAll();
-  const rec = list.find(r => r.id === id);
-  if (act === "delete") { await dbDelete(id); toast("Đã xoá"); renderSubmissions(); return; }
-  if (act === "download") {
-    const blob = new Blob([rec.content], { type: "text/html" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href = url; a.download = rec.name; document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 2000);
+
+/* ---- thư viện dự án ---- */
+let galleryCache = {};   // id -> bản ghi, để mở/đóng nhận xét không phải gọi lại mạng
+
+async function renderGallery() {
+  const el = document.getElementById("galleryList");
+  const note = document.getElementById("galleryNote");
+  note.textContent = galleryIsShared()
+    ? "Bài nộp sau nằm trên đầu. Bấm để xem trước sản phẩm hoặc đọc nhận xét của AI."
+    : "Chưa cấu hình thư viện chung — bài nộp chỉ lưu trên máy này (xem DEPLOY-WORKER.md).";
+
+  el.innerHTML = `<div class="galleryEmpty"><span class="spinner"></span> Đang tải…</div>`;
+  let list;
+  try {
+    list = await galleryList();
+  } catch (err) {
+    el.innerHTML = `<div class="galleryEmpty">⚠️ Không tải được thư viện (${escapeHtml(err.message)}).</div>`;
     return;
   }
+  if (!list.length) {
+    el.innerHTML = `<div class="galleryEmpty">Chưa có dự án nào được nộp. Thầy/cô nộp bài đầu tiên nhé!</div>`;
+    return;
+  }
+  el.innerHTML = list.map(r => `
+    <div class="projCard" data-id="${escapeHtml(r.id)}">
+      <div class="projWho">${escapeHtml(r.teacherName)} · ${escapeHtml(r.className || "—")}</div>
+      <div class="projName">${escapeHtml(r.projectName)}</div>
+      <div class="projTags">🏷️ Tổ ${escapeHtml(r.to || "—")} · ${fmtDate(r.addedAt)}</div>
+      <div class="projActions">
+        <button class="btn secondary btnSm" data-act="preview">👁️ Xem trước</button>
+        <button class="btn primary btnSm" data-act="review" ${r.reviewText ? "" : "disabled"}
+          title="${r.reviewText ? "Xem nhận xét của AI" : "Bài này chưa có nhận xét AI"}">🤖 Xem đánh giá AI</button>
+      </div>
+      <div class="reviewArea"></div>
+    </div>`).join("");
+  galleryCache = Object.fromEntries(list.map(r => [r.id, r]));
+}
+
+document.addEventListener("click", async (e) => {
+  const card = e.target.closest(".projCard"); if (!card) return;
+  const act = e.target.closest("[data-act]")?.dataset.act;
+  if (!act) return;
+  const id = card.dataset.id;
+
   if (act === "preview") {
-    const blob = new Blob([rec.content], { type: "text/html" });
-    const url = URL.createObjectURL(blob);
-    window.open(url, "_blank", "noopener");
-    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    try {
+      const html = await galleryFetchFile(id);
+      if (html == null) { toast("Không tìm thấy file"); return; }
+      // mở qua blob: — mã của người khác chạy ở origin cô lập, không chung với trang này
+      const url = URL.createObjectURL(new Blob([html], { type: "text/html" }));
+      window.open(url, "_blank", "noopener");
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (err) { toast("Không mở được: " + err.message); }
     return;
   }
   if (act === "review") {
-    const ctx = currentReviewProvider();
-    if (!ctx) { toast("Hãy thêm API key ở Chặng 4 trước"); goToPage("c4-s2"); return; }
     const area = card.querySelector(".reviewArea");
-    area.innerHTML = `<div class="reviewBox"><span class="spinner"></span> Đang gửi cho AI, vui lòng chờ…</div>`;
-    const prompt = buildReviewPrompt(rec.content);
-    try {
-      const text = await CALLERS["call" + capitalize(ctx.provider.id)](ctx.saved.key, ctx.saved.model, prompt);
-      rec.reviewText = text; rec.reviewAt = Date.now();
-      await dbPut(rec);
-      area.innerHTML = renderReviewBox(text, rec.reviewAt);
-    } catch (err) {
-      area.innerHTML = `<div class="reviewBox">⚠️ Không gọi được AI (${escapeHtml(err.message)}). Kiểm tra lại key ở Chặng 4 và kết nối mạng rồi thử lại.</div>`;
-    }
+    if (area.innerHTML) { area.innerHTML = ""; return; }   // bấm lần nữa để đóng
+    const rec = galleryCache[id];
+    area.innerHTML = renderReviewBox(rec.reviewText, rec.addedAt);
   }
 });
+
 function capitalize(s) {
   if (s === "openai") return "OpenAI";
   if (s === "anthropic") return "Anthropic";
   if (s === "gemini") return "Gemini";
   return s;
 }
+
+/* TODO (nhờ thầy/cô viết): hai mục 1) và 2) dưới đây quyết định AI sẽ soi vào
+   đâu cho MỌI bài nộp — đó là chuyên môn sư phạm, không phải chuyện kỹ thuật.
+   Cụ thể cần bổ sung:
+     · Mục 1) NỘI DUNG — với học sinh chuyên, thế nào là "độ khó phù hợp"?
+       Có tiêu chí riêng nào của tổ chuyên môn cần AI kiểm tra không?
+     · Mục 2) TRÌNH BÀY — một học liệu HTML "trình bày tốt" trên lớp là như
+       thế nào? (chiếu máy chiếu? học sinh tự mở trên điện thoại? in ra giấy?)
+   Viết thẳng vào chuỗi bên dưới, càng cụ thể thì nhận xét càng dùng được. */
 function buildReviewPrompt(html) {
   const clipped = html.length > 6000 ? html.slice(0, 6000) + "\n...(đã cắt bớt do quá dài)..." : html;
-  return `Bạn là chuyên gia sư phạm kiêm frontend developer, đang chấm một sản phẩm HTML do giáo viên THPT tự tạo bằng AI để dùng trong dạy học.
-Hãy góp ý ngắn gọn, cụ thể, theo đúng cấu trúc sau bằng tiếng Việt:
-1) SƯ PHẠM: nội dung có đúng, có rõ mục tiêu học tập, có phù hợp đối tượng học sinh không?
-2) KỸ THUẬT: có lỗi rõ ràng nào khi đọc mã nguồn không (đáp án lộ, không responsive, thiếu kiểm tra input)?
-3) AN TOÀN: có API key nào bị viết cứng trong mã không? Nếu có, cảnh báo ngay ở đầu.
-4) ĐỀ XUẤT: tối đa 3 việc nên sửa trước khi phát cho học sinh.
-Giữ câu trả lời dưới 200 từ, không dùng markdown, viết như đang góp ý trực tiếp cho đồng nghiệp.
+  return `Bạn là chuyên gia sư phạm kiêm frontend developer, đang nhận xét một sản phẩm HTML do giáo viên THPT tự tạo bằng AI để dùng trong dạy học.
+Hãy góp ý ngắn gọn, cụ thể, theo đúng 4 mục sau bằng tiếng Việt:
 
-Mã nguồn HTML cần chấm:
+1) NỘI DUNG: kiến thức có chính xác không? Mục tiêu học tập có rõ không? Độ khó có hợp đối tượng học sinh không? Đáp án có bị lộ trong mã nguồn không?
+2) TRÌNH BÀY: bố cục có dễ theo dõi không? Cỡ chữ và độ tương phản có đọc được không? Có dùng được trên điện thoại không? Thông báo/hướng dẫn cho học sinh có dễ hiểu không?
+3) CẢNH BÁO: có API key nào bị viết cứng trong mã không? Nếu có, nói ngay ở dòng đầu tiên.
+4) NÊN SỬA: tối đa 3 việc cụ thể cần làm trước khi phát cho học sinh.
+
+Giữ câu trả lời dưới 250 từ, không dùng markdown, viết như đang góp ý trực tiếp cho đồng nghiệp.
+
+Mã nguồn HTML cần nhận xét:
 ---
 ${clipped}
 ---`;
@@ -778,13 +974,13 @@ function closeSearch() { document.getElementById("searchOverlay").classList.remo
 function globalFind() {
   const q = document.getElementById("globalSearch").value.toLowerCase().trim();
   const items = [
+    ["Demo · API key, nộp bài, AI nhận xét", "Cấu hình Gemini/Anthropic/OpenAI, tải file HTML lên, nhận góp ý", "home"],
+    ["Thư viện dự án đã nộp", "Xem trước sản phẩm và đánh giá AI của đồng nghiệp", "home"],
     ["Chặng 1 · Hiểu AI", "AI nào hợp việc gì, Skill hay Project", "c1-s1"],
     ["Chặng 2 · Viết prompt", "Công thức 6 phần, ngân hàng 16 prompt", "c2-s1"],
     ["Chặng 3 · Tạo sản phẩm", "HTML tương tác, Skill, 8 tình huống, mẫu tham khảo", "c3-s1"],
     ["8 tình huống thật", "Từ học liệu sẵn có đến công cụ dùng được", "c3-s3"],
-    ["Nộp sản phẩm & AI chấm", "Tải lên file HTML, nhận góp ý từ AI", "c3-s6"],
     ["Chặng 4 · Chia sẻ & an toàn", "API key, 5 nguyên tắc, GitHub Pages", "c4-s1"],
-    ["Thêm API key của bạn", "Gemini, Anthropic, OpenAI — chọn model", "c4-s2"],
     ["Tài liệu tải về", "3 PDF tập huấn và bộ Skill thực hành", "c4-s4"],
     ["FAQ", "An toàn dữ liệu, tài khoản dùng chung, kiểm thử", "c4-s5"]
   ];
@@ -795,6 +991,10 @@ function globalFind() {
 
 /* ---------------------------------------------------------- boot */
 function boot() {
+  // PAGES phải sẵn sàng trước: tiến độ theo chặng được suy ra từ danh sách bước,
+  // mà danh sách bước lại đọc từ chính DOM các .page.
+  initPages();
+
   renderNav();
   renderJourneyCards();
   renderClaudeCards();
@@ -805,12 +1005,15 @@ function boot() {
   initSubjects();
   renderResources();
   renderFaq();
+
+  initTeacherForm();
   renderProviderRow(); renderKeyList();
-  setupDropZone(); renderSubmissions();
-  setupChDoneBoxes();
+  setupDropZone();
+  renderGallery();
+
+  setupStepDoneBoxes();
   renderJourneyProgress();
 
-  initPages();
   document.getElementById("navBack").addEventListener("click", goBack);
   document.getElementById("navNext").addEventListener("click", goNext);
   document.getElementById("brandBtn").addEventListener("click", () => goToPage("home"));

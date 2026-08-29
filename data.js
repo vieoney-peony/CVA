@@ -3,6 +3,20 @@
 // Tách riêng khỏi giao diện để chỉnh nội dung không phải đụng code.
 // ============================================================
 
+// ---- Thư viện dự án chung ----
+// Dán URL Cloudflare Worker đã deploy vào đây (xem DEPLOY-WORKER.md).
+// Để rỗng "" thì trang vẫn chạy bình thường, nhưng bài nộp chỉ lưu trên máy này.
+const WORKER_URL = "";
+
+// ---- Lớp dạy (dropdown ở phần Demo trang chủ) ----
+// Sửa danh sách này nếu cơ cấu lớp của trường thay đổi.
+const CLASS_TRACKS = ["Toán", "Tin", "Vật lí", "Hóa học", "Sinh học", "Ngữ văn",
+  "Lịch sử", "Địa lí", "Tiếng Anh", "Tiếng Pháp", "Tiếng Nhật", "Tiếng Trung", "Không chuyên"];
+const CLASSES = [10, 11, 12].map(khoi => ({
+  khoi,
+  lop: CLASS_TRACKS.map(t => `${khoi} ${t}`)
+}));
+
 // ---- Lộ trình 4 chặng (điều khiển menu + progress + section order) ----
 const JOURNEY = [
   { id:"c1", n:1, label:"Hiểu AI",      icon:"🧭", anchor:"#chang1",
