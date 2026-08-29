@@ -8,6 +8,18 @@
 // Để rỗng "" thì trang vẫn chạy bình thường, nhưng bài nộp chỉ lưu trên máy này.
 const WORKER_URL = "https://cva-gallery.cva-genai.workers.dev";
 
+// ---- Giới hạn kích thước file HTML nộp lên (đơn vị MB) ----
+// Một dự án thường gói hết ảnh/CSS/JS vào một file duy nhất nên khá nặng.
+// Trần kỹ thuật: một giá trị KV của Cloudflare tối đa 25MB.
+// Sửa số này thì phải sửa cả MAX_HTML_MB trong cloudflare-worker.js cho khớp.
+const MAX_UPLOAD_MB = 10;
+
+// ---- Tên miền được chấp nhận khi dán link trang đã xuất bản ----
+// Chỉ nhận https và các miền dưới đây (kể cả tên miền con), để thư viện
+// chung không biến thành chỗ dán link linh tinh. Thêm dòng nếu trường
+// dùng dịch vụ khác.
+const ALLOWED_PAGE_HOSTS = ["github.io", "pages.dev", "netlify.app", "vercel.app"];
+
 // ---- Lớp dạy (dropdown ở phần Demo trang chủ) ----
 // Sửa danh sách này nếu cơ cấu lớp của trường thay đổi.
 const CLASS_TRACKS = ["Toán", "Tin", "Vật lí", "Hóa học", "Sinh học", "Ngữ văn",

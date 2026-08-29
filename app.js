@@ -642,9 +642,42 @@ document.addEventListener("click", (e) => {
 });
 
 /* ---- provider API calls (direct browser → provider, no middle server) ---- */
+
+/**
+ * Dựng Error từ phản hồi lỗi của nhà cung cấp.
+ * Quan trọng: phải ĐỌC BODY. Con số "404" tự nó không nói được gì, còn body
+ * thì ghi rõ "model không tồn tại" hay "key không có quyền dùng model này" —
+ * đó mới là thứ thầy/cô cần để sửa.
+ */
+async function apiError(res, model) {
+  let detail = "";
+  try {
+    const j = await res.json();
+    detail = (j && j.error && (j.error.message || j.error.type)) || (j && j.message) || "";
+  } catch (e) { /* body không phải JSON, bỏ qua */ }
+
+  if (res.status === 404) {
+    return new Error(`404 — model "${model}" không dùng được với key này`
+      + (detail ? ` (${detail})` : "") + ". Hãy chọn model khác ở ô Model rồi Lưu key lại.");
+  }
+  if (res.status === 401 || res.status === 403) {
+    return new Error(`${res.status} — key sai hoặc chưa được cấp quyền` + (detail ? ` (${detail})` : ""));
+  }
+  if (res.status === 429) {
+    return new Error("429 — vượt hạn mức của key, chờ một lát rồi thử lại");
+  }
+  return new Error("HTTP " + res.status + (detail ? " — " + detail : ""));
+}
+
+/* Các hàm test dưới đây cố tình đi ĐÚNG endpoint mà phần nhận xét sẽ gọi,
+   với ĐÚNG model đang chọn. Trước đây test chỉ liệt kê model / kiểm tra key
+   nên luôn báo "kết nối thành công", rồi lúc nhận xét mới lộ ra 404. */
 async function testGemini(key, model) {
-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(key)}`);
-  if (!res.ok) throw new Error("HTTP " + res.status);
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`, {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ contents: [{ parts: [{ text: "hi" }] }], generationConfig: { maxOutputTokens: 1 } })
+  });
+  if (!res.ok) throw await apiError(res, model);
   return true;
 }
 async function testAnthropic(key, model) {
@@ -658,21 +691,23 @@ async function testAnthropic(key, model) {
     },
     body: JSON.stringify({ model: model, max_tokens: 1, messages: [{ role: "user", content: "hi" }] })
   });
-  if (!res.ok && res.status !== 400) throw new Error("HTTP " + res.status);
-  if (res.status === 401) throw new Error("HTTP 401");
+  if (!res.ok) throw await apiError(res, model);
   return true;
 }
 async function testOpenAI(key, model) {
-  const res = await fetch("https://api.openai.com/v1/models", { headers: { "Authorization": "Bearer " + key } });
-  if (!res.ok) throw new Error("HTTP " + res.status);
+  // GET /v1/models/<id> trả 404 đúng khi key không được phép dùng model đó —
+  // kiểm tra được cùng một điều kiện mà không tốn token nào.
+  const res = await fetch(`https://api.openai.com/v1/models/${encodeURIComponent(model)}`,
+    { headers: { "Authorization": "Bearer " + key } });
+  if (!res.ok) throw await apiError(res, model);
   return true;
 }
 async function callGemini(key, model, prompt) {
-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`, {
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`, {
     method: "POST", headers: { "content-type": "application/json" },
     body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
   });
-  if (!res.ok) throw new Error("HTTP " + res.status);
+  if (!res.ok) throw await apiError(res, model);
   const j = await res.json();
   return j.candidates?.[0]?.content?.parts?.map(p => p.text).join("") || "(không có phản hồi)";
 }
@@ -685,7 +720,7 @@ async function callAnthropic(key, model, prompt) {
     },
     body: JSON.stringify({ model: model, max_tokens: 1200, messages: [{ role: "user", content: prompt }] })
   });
-  if (!res.ok) throw new Error("HTTP " + res.status);
+  if (!res.ok) throw await apiError(res, model);
   const j = await res.json();
   return j.content?.map(c => c.text).join("") || "(không có phản hồi)";
 }
@@ -694,7 +729,7 @@ async function callOpenAI(key, model, prompt) {
     method: "POST", headers: { "content-type": "application/json", "Authorization": "Bearer " + key },
     body: JSON.stringify({ model: model, messages: [{ role: "user", content: prompt }] })
   });
-  if (!res.ok) throw new Error("HTTP " + res.status);
+  if (!res.ok) throw await apiError(res, model);
   const j = await res.json();
   return j.choices?.[0]?.message?.content || "(không có phản hồi)";
 }
@@ -710,7 +745,7 @@ async function testKey() {
     await CALLERS[p.testFn](key, model);
     setKeyStatus("ok", "Kết nối thành công");
   } catch (err) {
-    setKeyStatus("bad", "Không kết nối được (" + err.message + ") — kiểm tra lại key, kết nối mạng, hoặc thử lại sau vài giây");
+    setKeyStatus("bad", "Không dùng được: " + err.message);
   }
 }
 
@@ -787,6 +822,43 @@ async function galleryFetchFile(id) {
 let pickedDoc = null;   // { name, size, html }
 let pickedReview = "";
 
+/**
+ * Kiểm tra link trang đã xuất bản.
+ * Trả { ok:true, url } hoặc { ok:false, msg }. Ô trống cũng là hợp lệ —
+ * thầy/cô có thể chỉ nộp file, không bắt phải có link.
+ */
+function validatePageUrl(raw) {
+  const v = String(raw || "").trim();
+  if (!v) return { ok: true, url: "" };
+
+  let u;
+  try { u = new URL(v); } catch (e) { return { ok: false, msg: "Link không đúng định dạng. Phải bắt đầu bằng https://" }; }
+  if (u.protocol !== "https:") return { ok: false, msg: "Link phải dùng https:// cho an toàn" };
+
+  const host = u.hostname.toLowerCase();
+  const okHost = ALLOWED_PAGE_HOSTS.some(d => host === d || host.endsWith("." + d));
+  if (!okHost) {
+    return { ok: false, msg: `Chỉ nhận link từ: ${ALLOWED_PAGE_HOSTS.join(", ")}` };
+  }
+  return { ok: true, url: u.href };
+}
+
+/* Hiện hàng nút khi đã có ít nhất MỘT trong hai thứ: file hoặc link hợp lệ. */
+function refreshDemoActions() {
+  const hint = document.getElementById("pageUrlHint");
+  const raw = document.getElementById("pageUrl").value;
+  const res = validatePageUrl(raw);
+
+  if (raw.trim() && !res.ok) {
+    hint.textContent = "⚠️ " + res.msg;
+    hint.classList.add("bad");
+  } else {
+    hint.textContent = "Dán link nếu thầy/cô đã đưa dự án lên GitHub Pages. Có link thì đồng nghiệp mở là dùng được ngay, không cần tải file về.";
+    hint.classList.remove("bad");
+  }
+  document.getElementById("demoActions").hidden = !(pickedDoc || (res.ok && res.url));
+}
+
 function setupDropZone() {
   const dz = document.getElementById("dropZone");
   const input = document.getElementById("fileInput");
@@ -797,6 +869,7 @@ function setupDropZone() {
   ["dragleave", "drop"].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.remove("drag"); }));
   dz.addEventListener("drop", e => { const f = e.dataTransfer.files[0]; if (f) handleFile(f); });
 
+  document.getElementById("pageUrl").addEventListener("input", refreshDemoActions);
   document.getElementById("btnReview").addEventListener("click", runReview);
   document.getElementById("btnSubmit").addEventListener("click", submitToGallery);
   document.getElementById("btnRefreshGallery").addEventListener("click", () => renderGallery());
@@ -804,15 +877,18 @@ function setupDropZone() {
 
 async function handleFile(file) {
   if (!/\.html?$/i.test(file.name)) { toast("Chỉ chấp nhận file .html/.htm"); return; }
-  if (file.size > 2 * 1024 * 1024) { toast("File vượt quá 2MB"); return; }
+  if (file.size > MAX_UPLOAD_MB * 1024 * 1024) { toast(`File vượt quá ${MAX_UPLOAD_MB}MB`); return; }
   pickedDoc = { name: file.name, size: file.size, html: await file.text() };
   pickedReview = "";
 
   const info = document.getElementById("pickedFile");
   info.hidden = false;
-  info.textContent = `📄 ${file.name} · ${formatBytes(file.size)}`;
-  document.getElementById("demoActions").hidden = false;
+  // Báo trước khi file dài hơn mức AI đọc được, để không ai tưởng AI đã xem hết.
+  const over = pickedDoc.html.length > REVIEW_CHAR_LIMIT;
+  info.textContent = `📄 ${file.name} · ${formatBytes(file.size)}`
+    + (over ? ` · ⚠️ AI chỉ đọc ${REVIEW_CHAR_LIMIT.toLocaleString("vi-VN")} ký tự đầu` : "");
   document.getElementById("demoReview").innerHTML = "";
+  refreshDemoActions();
 
   // gợi ý tên dự án từ tên file nếu giáo viên chưa đặt
   const nameEl = document.getElementById("projectName");
@@ -825,29 +901,54 @@ function currentReviewProvider() {
   return withKey ? { provider: withKey, saved: all[withKey.id] } : null;
 }
 
+/**
+ * Lấy mã nguồn để nhận xét: ưu tiên file đã chọn, không có thì tải từ link.
+ * GitHub Pages trả header "access-control-allow-origin: *" nên tải thẳng từ
+ * trình duyệt được, không cần proxy.
+ */
+async function getHtmlForReview() {
+  if (pickedDoc) return pickedDoc.html;
+
+  const res = validatePageUrl(document.getElementById("pageUrl").value);
+  if (!res.ok || !res.url) return null;
+
+  const r = await fetch(res.url).catch(() => null);
+  if (!r || !r.ok) {
+    throw new Error("không tải được nội dung từ link đó"
+      + (r ? ` (HTTP ${r.status})` : " — kiểm tra link đã công khai chưa"));
+  }
+  return r.text();
+}
+
 async function runReview() {
-  if (!pickedDoc) { toast("Chọn file HTML trước đã"); return; }
   const ctx = currentReviewProvider();
   if (!ctx) { toast("Lưu API key ở bước 2 trước đã"); scrollToSection("demo"); return; }
 
   const area = document.getElementById("demoReview");
   area.innerHTML = `<div class="reviewBox"><span class="spinner"></span> Đang gửi cho AI, vui lòng chờ…</div>`;
   try {
+    const html = await getHtmlForReview();
+    if (html == null) { area.innerHTML = ""; toast("Chọn file HTML hoặc dán link trước đã"); return; }
+
     const text = await CALLERS["call" + capitalize(ctx.provider.id)](
-      ctx.saved.key, ctx.saved.model, buildReviewPrompt(pickedDoc.html));
+      ctx.saved.key, ctx.saved.model, buildReviewPrompt(html));
     pickedReview = text;
     area.innerHTML = renderReviewBox(text, Date.now());
   } catch (err) {
-    area.innerHTML = `<div class="reviewBox">⚠️ Không gọi được AI (${escapeHtml(err.message)}). Kiểm tra lại key ở bước 2 và kết nối mạng rồi thử lại.</div>`;
+    area.innerHTML = `<div class="reviewBox">⚠️ Không gọi được AI.<br><b>${escapeHtml(err.message)}</b></div>`;
   }
 }
 
 async function submitToGallery() {
   const t = getTeacher();
   if (!teacherIsComplete(t)) { toast("Điền thông tin ở bước 1 trước đã"); scrollToSection("demo"); return; }
-  if (!pickedDoc) { toast("Chọn file HTML trước đã"); return; }
   const projectName = document.getElementById("projectName").value.trim();
   if (!projectName) { toast("Đặt tên cho dự án trước đã"); return; }
+
+  const link = validatePageUrl(document.getElementById("pageUrl").value);
+  if (!link.ok) { toast(link.msg); return; }
+  // Nộp được khi có file, hoặc có link, hoặc cả hai.
+  if (!pickedDoc && !link.url) { toast("Chọn file HTML hoặc dán link trang trước đã"); return; }
 
   const btn = document.getElementById("btnSubmit");
   btn.disabled = true;
@@ -856,8 +957,12 @@ async function submitToGallery() {
       id: "p_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8),
       addedAt: Date.now(),
       teacherName: t.name, className: t.className, to: t.to,
-      projectName, fileName: pickedDoc.name, size: pickedDoc.size,
-      html: pickedDoc.html, reviewText: pickedReview
+      projectName,
+      fileName: pickedDoc ? pickedDoc.name : "",
+      size: pickedDoc ? pickedDoc.size : 0,
+      html: pickedDoc ? pickedDoc.html : "",
+      pageUrl: link.url,
+      reviewText: pickedReview
     });
     toast(galleryIsShared() ? "Đã nộp vào thư viện chung" : "Đã lưu trên máy này");
     await renderGallery();
@@ -895,13 +1000,19 @@ async function renderGallery() {
     el.innerHTML = `<div class="galleryEmpty">Chưa có dự án nào được nộp. Thầy/cô nộp bài đầu tiên nhé!</div>`;
     return;
   }
+  // /list chỉ trả metadata (có cờ hasFile), còn bản ghi IndexedDB thì chứa cả html.
+  const hasFile = r => (r.hasFile !== undefined ? Boolean(r.hasFile) : Boolean(r.html));
+
   el.innerHTML = list.map(r => `
     <div class="projCard" data-id="${escapeHtml(r.id)}">
       <div class="projWho">${escapeHtml(r.teacherName)} · ${escapeHtml(r.className || "—")}</div>
       <div class="projName">${escapeHtml(r.projectName)}</div>
       <div class="projTags">🏷️ Tổ ${escapeHtml(r.to || "—")} · ${fmtDate(r.addedAt)}</div>
+      ${r.pageUrl ? `<div class="projLink">🔗 ${escapeHtml(r.pageUrl)}</div>` : ""}
       <div class="projActions">
-        <button class="btn secondary btnSm" data-act="preview">👁️ Xem trước</button>
+        ${r.pageUrl ? `<button class="btn secondary btnSm" data-act="open">🔗 Mở trang ↗</button>` : ""}
+        <button class="btn secondary btnSm" data-act="preview" ${hasFile(r) ? "" : "disabled"}
+          title="${hasFile(r) ? "Mở bản HTML đã nộp" : "Bài này chỉ có link, không kèm file"}">👁️ Xem trước</button>
         <button class="btn primary btnSm" data-act="review" ${r.reviewText ? "" : "disabled"}
           title="${r.reviewText ? "Xem nhận xét của AI" : "Bài này chưa có nhận xét AI"}">🤖 Xem đánh giá AI</button>
       </div>
@@ -916,6 +1027,12 @@ document.addEventListener("click", async (e) => {
   if (!act) return;
   const id = card.dataset.id;
 
+  if (act === "open") {
+    const rec = galleryCache[id];
+    // rel=noopener: trang của người khác không điều khiển được tab này
+    if (rec && rec.pageUrl) window.open(rec.pageUrl, "_blank", "noopener,noreferrer");
+    return;
+  }
   if (act === "preview") {
     try {
       const html = await galleryFetchFile(id);
@@ -950,8 +1067,21 @@ function capitalize(s) {
      · Mục 2) TRÌNH BÀY — một học liệu HTML "trình bày tốt" trên lớp là như
        thế nào? (chiếu máy chiếu? học sinh tự mở trên điện thoại? in ra giấy?)
    Viết thẳng vào chuỗi bên dưới, càng cụ thể thì nhận xét càng dùng được. */
+/* Giới hạn số ký tự mã nguồn gửi cho AI để nhận xét.
+   60.000 ký tự ≈ 15.000–20.000 token — vừa trong cửa sổ ngữ cảnh của mọi model
+   đang dùng ở đây, đủ để AI đọc được cả câu hỏi, đáp án lẫn phần <script>
+   — tức là những chỗ mục 1) và 3) của prompt thực sự cần soi.
+   Đánh đổi: mỗi lượt nhận xét tốn token gấp ~10 lần mức cũ (6.000). */
+const REVIEW_CHAR_LIMIT = 60000;
+
+function clipForReview(html) {
+  if (html.length <= REVIEW_CHAR_LIMIT) return html;
+  return html.slice(0, REVIEW_CHAR_LIMIT)
+    + "\n...(đã cắt bớt do quá dài)...";
+}
+
 function buildReviewPrompt(html) {
-  const clipped = html.length > 6000 ? html.slice(0, 6000) + "\n...(đã cắt bớt do quá dài)..." : html;
+  const clipped = clipForReview(html);
   return `Bạn là chuyên gia sư phạm kiêm frontend developer, đang nhận xét một sản phẩm HTML do giáo viên THPT tự tạo bằng AI để dùng trong dạy học.
 Hãy góp ý ngắn gọn, cụ thể, theo đúng 4 mục sau bằng tiếng Việt:
 

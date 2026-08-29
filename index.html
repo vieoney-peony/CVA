@@ -171,11 +171,20 @@
               aria-label="Chọn hoặc kéo thả file HTML">
               <div class="big">📤</div>
               <b>Kéo thả file .html vào đây, hoặc bấm để chọn file</b>
-              <p style="color:var(--muted);font-size:12.5px;margin-top:6px">Chỉ chấp nhận file .html/.htm, tối đa 2MB.
+              <p style="color:var(--muted);font-size:12.5px;margin-top:6px">Chỉ chấp nhận file .html/.htm, tối đa 10MB.
               </p>
               <input type="file" id="fileInput" accept=".html,.htm" class="visually-hidden">
             </div>
             <div class="pickedFile" id="pickedFile" hidden></div>
+
+            <div class="orSplit"><span>hoặc / và</span></div>
+
+            <label for="pageUrl">Link trang đã xuất bản (GitHub Pages…)</label>
+            <input type="url" id="pageUrl" inputmode="url" autocomplete="off"
+              placeholder="https://ten-tai-khoan.github.io/ten-du-an/">
+            <p class="fieldHint" id="pageUrlHint">Dán link nếu thầy/cô đã đưa dự án lên GitHub Pages.
+              Có link thì đồng nghiệp mở là dùng được ngay, không cần tải file về.</p>
+
             <div class="actions" id="demoActions" hidden>
               <button class="btn primary" id="btnReview">🤖 Nhờ AI nhận xét</button>
               <button class="btn secondary" id="btnSubmit">📤 Nộp vào thư viện chung</button>

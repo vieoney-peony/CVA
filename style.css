@@ -336,6 +336,21 @@ html[data-theme="dark"] .demoNum{color:#0d1220}
 }
 #projectName{margin-bottom:14px}
 
+/* dải phân cách "hoặc / và" giữa ô tải file và ô dán link */
+.orSplit{
+  display:flex;align-items:center;gap:12px;
+  margin:16px 0 14px;color:var(--muted);font-size:12px;
+  text-transform:uppercase;letter-spacing:.08em;
+}
+.orSplit::before,.orSplit::after{content:"";flex:1;height:1px;background:var(--line)}
+.fieldHint{font-size:12.5px;color:var(--muted);margin:6px 0 0;line-height:1.55}
+.fieldHint.bad{color:var(--link)}
+#pageUrl{margin-bottom:0}
+.projLink{
+  display:inline-flex;align-items:center;gap:5px;font-size:12.5px;
+  color:var(--muted);margin-top:6px;word-break:break-all;
+}
+
 /* ---------------- thư viện dự án chung ---------------- */
 .galleryList{
   display:flex;flex-direction:column;gap:12px;

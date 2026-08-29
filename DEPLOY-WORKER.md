@@ -70,8 +70,25 @@ Sau đó Worker sẽ từ chối mọi request `/submit` không kèm header `x-c
 
 | Mục | Giá trị |
 |---|---|
-| Kích thước file tối đa | 2MB |
+| Kích thước file tối đa | 10MB (`MAX_UPLOAD_MB` trong `data.js` + `MAX_HTML_MB` trong `cloudflare-worker.js`) |
 | Số bài `/list` trả về | 300 mới nhất |
 | Hạn mức KV gói miễn phí | 100.000 lượt đọc/ngày, 1.000 lượt ghi/ngày |
+| Miền được dán link | `github.io`, `pages.dev`, `netlify.app`, `vercel.app` (`ALLOWED_PAGE_HOSTS`, khai báo ở **cả hai** `data.js` và `cloudflare-worker.js`) |
+| Mã nguồn gửi cho AI nhận xét | 60.000 ký tự đầu (`REVIEW_CHAR_LIMIT` trong `app.js`) |
 
 Xóa một bài: vào Cloudflare Dashboard → Workers & Pages → KV → namespace `SUBMISSIONS`, xóa cặp key `meta:...:<id>` và `file:<id>`.
+
+---
+
+## Nộp bằng link thay vì file
+
+Một bài nộp hợp lệ khi có **ít nhất một** trong hai thứ:
+
+- file `.html` tải lên, hoặc
+- link trang đã xuất bản (GitHub Pages…) dán vào ô bên dưới ô tải file.
+
+Có cả hai cũng được: thẻ trong thư viện sẽ hiện cả nút **Mở trang ↗** lẫn **Xem trước**.
+
+Chỉ nhận `https://` và các miền trong `ALLOWED_PAGE_HOSTS`. Danh sách này khai báo **hai nơi** và phải giống nhau — `data.js` cho trình duyệt, `cloudflare-worker.js` cho phía máy chủ (vì kiểm tra phía trình duyệt thì ai cũng bỏ qua được bằng một lệnh `curl`).
+
+Khi chỉ có link, nút “Nhờ AI nhận xét” sẽ tự tải HTML từ chính link đó — GitHub Pages trả header `access-control-allow-origin: *` nên không cần proxy. Trang phải ở chế độ công khai.
