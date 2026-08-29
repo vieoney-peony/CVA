@@ -574,6 +574,7 @@ function setSavedKeys(obj) { localStorage.setItem(KEYS_STORAGE, JSON.stringify(o
 function renderProviderRow() {
   document.getElementById("providerRow").innerHTML = PROVIDERS.map(p =>
     `<button class="providerBtn" data-p="${p.id}">${escapeHtml(p.name)}</button>`).join("");
+  document.getElementById("modelSelect").addEventListener("change", persistModelChoice);
   applyProvider();
 }
 function applyProvider() {
@@ -667,7 +668,8 @@ async function apiError(res, model) {
 
   if (res.status === 404) {
     return new Error(`404 — model "${model}" không dùng được với key này`
-      + (detail ? ` (${detail})` : "") + ". Hãy chọn model khác ở ô Model rồi Lưu key lại.");
+      + (detail ? ` (${detail})` : "")
+      + ". Bấm 🔄 Tải danh sách ở bước 2 rồi chọn model khác.");
   }
   if (res.status === 401 || res.status === 403) {
     return new Error(`${res.status} — key sai hoặc chưa được cấp quyền` + (detail ? ` (${detail})` : ""));
@@ -806,7 +808,9 @@ async function loadModels() {
       `<option value="${escapeHtml(m.id)}">${escapeHtml(m.label)}</option>`).join("");
     if (models.some(m => m.id === before)) sel.value = before;
 
-    hint.textContent = `✅ ${models.length} model dùng được với key này. Chọn một cái rồi bấm Lưu key.`;
+    // Danh sách mới có thể làm giá trị đang chọn đổi — lưu lại ngay cho khớp.
+    persistModelChoice();
+    hint.textContent = `✅ ${models.length} model dùng được với key này. Chọn một cái là tự lưu.`;
   } catch (err) {
     hint.textContent = "⚠️ Không tải được danh sách: " + err.message;
     hint.classList.add("bad");
@@ -953,6 +957,10 @@ function setupDropZone() {
   document.getElementById("btnReview").addEventListener("click", runReview);
   document.getElementById("btnSubmit").addEventListener("click", submitToGallery);
   document.getElementById("btnRefreshGallery").addEventListener("click", () => renderGallery());
+
+  // Trình duyệt khôi phục giá trị ô nhập khi tải lại trang, nên phải tính lại
+  // xem có hiện hàng nút không — không thì link còn đó mà nút nộp biến mất.
+  refreshDemoActions();
 }
 
 async function handleFile(file) {
@@ -975,10 +983,39 @@ async function handleFile(file) {
   if (!nameEl.value.trim()) nameEl.value = file.name.replace(/\.html?$/i, "").replace(/[-_]+/g, " ");
 }
 
+/**
+ * Chọn provider + model dùng cho lượt nhận xét.
+ *
+ * Hai điểm từng sai ở đây:
+ *  1. Lấy provider ĐẦU TIÊN có key thay vì provider đang mở — ai lưu cả key
+ *     Gemini lẫn OpenAI thì luôn bị gọi Gemini dù đang ở tab OpenAI.
+ *  2. Lấy model từ localStorage mà bỏ qua ô Model trên màn hình — chọn model
+ *     mới xong bấm "Nhờ AI nhận xét" vẫn gọi model cũ đã khai tử.
+ */
 function currentReviewProvider() {
   const all = getSavedKeys();
-  const withKey = PROVIDERS.find(p => all[p.id] && all[p.id].key);
-  return withKey ? { provider: withKey, saved: all[withKey.id] } : null;
+  // Ưu tiên provider đang mở; nó chưa có key thì mới tìm sang cái khác.
+  const id = [currentProviderId, ...PROVIDERS.map(p => p.id)]
+    .find(pid => all[pid] && all[pid].key);
+  if (!id) return null;
+
+  const saved = { ...all[id] };
+  // Ô Model trên màn hình là ý muốn mới nhất, ưu tiên hơn bản đã lưu.
+  if (id === currentProviderId) {
+    const live = document.getElementById("modelSelect").value;
+    if (live) saved.model = live;
+  }
+  return { provider: PROVIDERS.find(p => p.id === id), saved };
+}
+
+/* Đổi model trong ô chọn là lưu luôn — không bắt bấm thêm "Lưu key".
+   Chỉ cập nhật khi provider này đã có key, vì không có key thì chưa có gì để lưu. */
+function persistModelChoice() {
+  const all = getSavedKeys();
+  if (!all[currentProviderId] || !all[currentProviderId].key) return;
+  all[currentProviderId].model = document.getElementById("modelSelect").value;
+  setSavedKeys(all);
+  renderKeyList();
 }
 
 /**
@@ -1051,6 +1088,7 @@ async function submitToGallery() {
     if (galleryIsShared() && saved && saved.id) pendingSubmissions.unshift(saved);
 
     toast(galleryIsShared() ? "Đã nộp vào thư viện chung" : "Đã lưu trên máy này");
+    resetSubmitForm();
     await renderGallery();
     scrollToSection("gallery");
   } catch (err) {
@@ -1058,6 +1096,18 @@ async function submitToGallery() {
   } finally {
     btn.disabled = false;
   }
+}
+
+/* Dọn form sau khi nộp xong. Không dọn thì file + link vẫn nằm đó, bấm nhầm
+   là nộp trùng thêm một bản — tốn luôn hạn mức ghi KV (1.000 lượt/ngày). */
+function resetSubmitForm() {
+  pickedDoc = null;
+  pickedReview = "";
+  document.getElementById("projectName").value = "";
+  document.getElementById("pageUrl").value = "";
+  document.getElementById("pickedFile").hidden = true;
+  document.getElementById("demoReview").innerHTML = "";
+  refreshDemoActions();
 }
 
 function renderReviewBox(text, at) {
@@ -1073,7 +1123,7 @@ async function renderGallery() {
   const note = document.getElementById("galleryNote");
   note.textContent = galleryIsShared()
     ? "Bài nộp sau nằm trên đầu. Bấm để xem trước sản phẩm hoặc đọc nhận xét của AI."
-    : "Chưa cấu hình thư viện chung — bài nộp chỉ lưu trên máy này (xem DEPLOY-WORKER.md).";
+    : "Chưa cấu hình thư viện chung — bài nộp chỉ lưu trên máy này (xem docs/DEPLOY-WORKER.md).";
 
   el.innerHTML = `<div class="galleryEmpty"><span class="spinner"></span> Đang tải…</div>`;
   let list;

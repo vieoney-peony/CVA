@@ -6,7 +6,7 @@
  *   GET  /file?id=<id>   → mã nguồn HTML của một bài (dùng cho Xem trước)
  *   POST /submit         → nhận một bài nộp mới
  *
- * Hướng dẫn deploy: xem DEPLOY-WORKER.md
+ * Hướng dẫn deploy: xem docs/DEPLOY-WORKER.md
  * Binding cần có: KV namespace tên SUBMISSIONS
  * Secret tùy chọn: SUBMIT_TOKEN (nếu đặt thì client phải gửi header x-cva-token)
  */

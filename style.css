@@ -322,7 +322,7 @@ html[data-theme="dark"] .demoNum{color:#0d1220}
 
 /* nhãn + ô nhập dùng chung cho cả 3 bước demo */
 .demoStep label{font-weight:800;font-size:13px;color:var(--muted);display:block;margin-bottom:5px}
-.demoStep input[type=text],.demoStep input[type=password],.demoStep select{
+.demoStep input[type=text],.demoStep input[type=password],.demoStep input[type=url],.demoStep select{
   width:100%;padding:11px 13px;border-radius:12px;border:1px solid var(--line);background:var(--panel);
   color:var(--ink);font-size:14px;
 }
@@ -474,6 +474,20 @@ html[data-theme="dark"] .providerBtn.active{color:#0d1220}
 /* ô model nằm trong keyRow nên bỏ margin riêng, keyRow lo khoảng cách */
 .keyRow .fullSelect{margin-bottom:0}
 .keyRow .btnSm{flex:none;white-space:nowrap}
+/* Màn hình hẹp: ô nhập chiếm trọn dòng, nút xuống dòng dưới thay vì bị bóp. */
+@media(max-width:420px){
+  .keyRow{flex-wrap:wrap}
+  .keyRow input,.keyRow select{flex:1 1 100%}
+}
+
+/* iOS Safari tự phóng to trang khi chạm vào ô nhập có cỡ chữ dưới 16px, và
+   phóng xong KHÔNG tự thu lại — thầy/cô bị kẹt ở khung hình lệch. Đủ 16px
+   trên màn hình cảm ứng là hết, desktop vẫn giữ cỡ chữ thiết kế ban đầu. */
+@media(max-width:760px){
+  .demoStep input[type=text],.demoStep input[type=password],
+  .demoStep input[type=url],.demoStep select,
+  .keyRow input,.searchPanel input{font-size:16px}
+}
 .keyStatus{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;margin-top:10px}
 .dot{width:9px;height:9px;border-radius:50%;background:#9aa6b2;flex:none}
 .dot.ok{background:#0e8f61}
@@ -492,7 +506,11 @@ html[data-theme="dark"] .providerBtn.active{color:#0d1220}
 }
 .dropZone.drag{border-color:var(--link);background:color-mix(in srgb,var(--link) 8%,var(--soft))}
 .dropZone .big{font-size:34px;margin-bottom:8px}
-.reviewBox{margin-top:12px;background:var(--soft);border-radius:12px;padding:13px 15px;font-size:13.5px;white-space:pre-wrap;line-height:1.6}
+.reviewBox{margin-top:12px;background:var(--soft);border-radius:12px;padding:13px 15px;font-size:13.5px;
+  white-space:pre-wrap;line-height:1.6;
+  /* pre-wrap chỉ xuống dòng ở dấu cách — nhận xét AI hay kèm URL/tên hàm dài
+     không có dấu cách, thiếu dòng này là tràn ngang cả trang trên điện thoại. */
+  overflow-wrap:anywhere;}
 .reviewScore{display:inline-flex;align-items:center;gap:7px;font-weight:800;color:var(--pri);margin-bottom:6px}
 .spinner{width:15px;height:15px;border-radius:50%;border:2px solid var(--line);border-top-color:var(--link);
   animation:spin .7s linear infinite;display:inline-block}
@@ -554,4 +572,24 @@ html[data-theme="dark"] .credits b{color:var(--acc)}
   section{padding:38px 0}
   .promptGrid,.sampleGrid,.cards,.resourcesGrid{grid-template-columns:1fr}
   h1{letter-spacing:-1px}
+}
+
+/* ---------------- vùng chạm trên thiết bị cảm ứng ---------------- */
+/* pointer:coarse = ngón tay (không phải chuột). .btnSm cao ~34px, dưới mức
+   44px mà cả iOS lẫn Android khuyến nghị, nên rất dễ bấm trượt sang nút bên
+   cạnh — nhất là hàng nút trong thẻ thư viện. Chỉ nới trên cảm ứng để giao
+   diện desktop giữ nguyên mật độ. */
+@media(pointer:coarse){
+  .btnSm{min-height:44px;padding-top:10px;padding-bottom:10px}
+  .projActions .btn{min-height:44px}
+}
+
+@media(max-width:760px){
+  /* Khung cuộn lồng trong trang cuộn rất khó dùng bằng ngón tay: vuốt trúng
+     thư viện thì trang đứng yên, vuốt trượt ra ngoài thì thư viện đứng yên.
+     Trên điện thoại để danh sách dài tự nhiên, cuộn theo cả trang. */
+  .galleryList{max-height:none;overflow-y:visible}
+  /* 3 nút trong thẻ (Mở trang / Xem trước / Đánh giá AI) dồn phải sẽ bị bóp;
+     tràn trái cho dễ đọc hơn khi chúng xuống nhiều dòng. */
+  .projActions{justify-content:flex-start}
 }

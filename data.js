@@ -4,7 +4,7 @@
 // ============================================================
 
 // ---- Thư viện dự án chung ----
-// Dán URL Cloudflare Worker đã deploy vào đây (xem DEPLOY-WORKER.md).
+// Dán URL Cloudflare Worker đã deploy vào đây (xem docs/DEPLOY-WORKER.md).
 // Để rỗng "" thì trang vẫn chạy bình thường, nhưng bài nộp chỉ lưu trên máy này.
 const WORKER_URL = "https://cva-gallery.cva-genai.workers.dev";
 
@@ -12,7 +12,7 @@ const WORKER_URL = "https://cva-gallery.cva-genai.workers.dev";
 // Một dự án thường gói hết ảnh/CSS/JS vào một file duy nhất nên khá nặng.
 // Trần kỹ thuật: một giá trị KV của Cloudflare tối đa 25MB.
 // Sửa số này thì phải sửa cả MAX_HTML_MB trong cloudflare-worker.js cho khớp.
-const MAX_UPLOAD_MB = 10;
+const MAX_UPLOAD_MB = 10; // 10 MB
 
 // ---- Tên miền được chấp nhận khi dán link trang đã xuất bản ----
 // Chỉ nhận https và các miền dưới đây (kể cả tên miền con), để thư viện
