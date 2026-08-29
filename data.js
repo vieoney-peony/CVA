@@ -6,7 +6,7 @@
 // ---- Thư viện dự án chung ----
 // Dán URL Cloudflare Worker đã deploy vào đây (xem DEPLOY-WORKER.md).
 // Để rỗng "" thì trang vẫn chạy bình thường, nhưng bài nộp chỉ lưu trên máy này.
-const WORKER_URL = "";
+const WORKER_URL = "https://cva-gallery.cva-genai.workers.dev";
 
 // ---- Lớp dạy (dropdown ở phần Demo trang chủ) ----
 // Sửa danh sách này nếu cơ cấu lớp của trường thay đổi.

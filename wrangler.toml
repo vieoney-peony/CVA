@@ -1,0 +1,7 @@
+name = "cva-gallery"
+main = "cloudflare-worker.js"
+compatibility_date = "2026-01-01"
+
+[[kv_namespaces]]
+binding = "CVA_GenAI_demo_pages"
+id = "a76eefd905e4411a92c2bf1611d86983"
