@@ -470,6 +470,10 @@ html[data-theme="dark"] .flip .back b{color:var(--acc)}
 html[data-theme="dark"] .providerBtn.active{color:#0d1220}
 .keyRow{display:flex;gap:8px;margin-bottom:10px}
 .keyRow input{flex:1;font-family:ui-monospace,monospace;font-size:13px}
+.keyRow select{flex:1;min-width:0}
+/* ô model nằm trong keyRow nên bỏ margin riêng, keyRow lo khoảng cách */
+.keyRow .fullSelect{margin-bottom:0}
+.keyRow .btnSm{flex:none;white-space:nowrap}
 .keyStatus{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;margin-top:10px}
 .dot{width:9px;height:9px;border-radius:50%;background:#9aa6b2;flex:none}
 .dot.ok{background:#0e8f61}

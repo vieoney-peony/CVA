@@ -582,15 +582,24 @@ function applyProvider() {
     b.classList.toggle("active", b.dataset.p === currentProviderId));
   document.getElementById("providerHint").innerHTML =
     `${escapeHtml(p.tagline)} · <a href="${escapeHtml(p.keyLink)}" target="_blank" rel="noopener">${escapeHtml(p.keyHint)} ↗</a>`;
-  renderModelSelect();
   const saved = getSavedKeys()[currentProviderId];
+  renderModelSelect(saved && saved.model);
   document.getElementById("keyInput").value = saved ? saved.key : "";
-  if (saved && saved.model) document.getElementById("modelSelect").value = saved.model;
   setKeyStatus(null);
 }
-function renderModelSelect() {
+/* `selected` là model đã lưu. Nếu nó không nằm trong danh sách gợi ý (vì lấy
+   bằng nút "Tải danh sách") thì phải thêm vào — không thì gán select.value sẽ
+   im lặng thất bại và thầy/cô bị trả về model đầu danh sách mà không hay biết. */
+function renderModelSelect(selected) {
   const p = PROVIDERS.find(x => x.id === currentProviderId);
-  document.getElementById("modelSelect").innerHTML = p.models.map(m => `<option value="${m.id}">${escapeHtml(m.label)}</option>`).join("");
+  const models = p.models.slice();
+  if (selected && !models.some(m => m.id === selected)) {
+    models.unshift({ id: selected, label: selected + " (đã lưu)" });
+  }
+  const sel = document.getElementById("modelSelect");
+  sel.innerHTML = models.map(m =>
+    `<option value="${escapeHtml(m.id)}">${escapeHtml(m.label)}</option>`).join("");
+  if (selected) sel.value = selected;
 }
 /* chỉ đổi class + text của 2 phần tử có sẵn, chiều cao không đổi */
 function setKeyStatus(state, msg) {
@@ -733,7 +742,78 @@ async function callOpenAI(key, model, prompt) {
   const j = await res.json();
   return j.choices?.[0]?.message?.content || "(không có phản hồi)";
 }
-const CALLERS = { testGemini, testAnthropic, testOpenAI, callGemini, callAnthropic, callOpenAI };
+/* ---- lấy danh sách model đang dùng được từ chính key ----
+   Model bị nhà cung cấp khai tử liên tục, nên viết cứng danh sách trong data.js
+   chắc chắn sẽ hỏng lại sau vài tháng. Ba hàm dưới đây hỏi thẳng nhà cung cấp,
+   nên luôn đúng với đúng cái key đang cầm. Trả về [{id,label}]. */
+async function listGemini(key) {
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(key)}`);
+  if (!res.ok) throw await apiError(res, "");
+  const j = await res.json();
+  return (j.models || [])
+    // chỉ giữ model sinh văn bản — bỏ embedding, TTS…
+    .filter(m => (m.supportedGenerationMethods || []).includes("generateContent"))
+    .map(m => ({ id: String(m.name || "").replace(/^models\//, ""), label: m.displayName || m.name }))
+    .filter(m => m.id);
+}
+async function listAnthropic(key) {
+  const res = await fetch("https://api.anthropic.com/v1/models?limit=100", {
+    headers: {
+      "x-api-key": key, "anthropic-version": "2023-06-01",
+      "anthropic-dangerous-direct-browser-access": "true"
+    }
+  });
+  if (!res.ok) throw await apiError(res, "");
+  const j = await res.json();
+  return (j.data || []).map(m => ({ id: m.id, label: m.display_name || m.id }));
+}
+async function listOpenAI(key) {
+  const res = await fetch("https://api.openai.com/v1/models", { headers: { "Authorization": "Bearer " + key } });
+  if (!res.ok) throw await apiError(res, "");
+  const j = await res.json();
+  // /v1/models trả về MỌI model (cả whisper, dall-e, embedding…) nên phải lọc.
+  const skip = /embed|audio|realtime|tts|whisper|image|dall-e|moderation|transcribe|search|codex/i;
+  return (j.data || [])
+    .map(m => m.id)
+    .filter(id => /^(gpt|o\d|chatgpt)/i.test(id) && !skip.test(id))
+    .sort()
+    .map(id => ({ id, label: id }));
+}
+
+const CALLERS = {
+  testGemini, testAnthropic, testOpenAI,
+  callGemini, callAnthropic, callOpenAI,
+  listGemini, listAnthropic, listOpenAI
+};
+
+/* Nạp danh sách model thật vào ô chọn, giữ nguyên lựa chọn cũ nếu nó còn sống. */
+async function loadModels() {
+  const key = document.getElementById("keyInput").value.trim();
+  const hint = document.getElementById("modelHint");
+  if (!key) { toast("Dán API key vào ô trên trước đã"); return; }
+
+  const btn = document.getElementById("btnLoadModels");
+  btn.disabled = true;
+  hint.classList.remove("bad");
+  hint.textContent = "Đang hỏi nhà cung cấp…";
+  try {
+    const models = await CALLERS["list" + capitalize(currentProviderId)](key);
+    if (!models.length) throw new Error("key này không dùng được model sinh văn bản nào");
+
+    const sel = document.getElementById("modelSelect");
+    const before = sel.value;
+    sel.innerHTML = models.map(m =>
+      `<option value="${escapeHtml(m.id)}">${escapeHtml(m.label)}</option>`).join("");
+    if (models.some(m => m.id === before)) sel.value = before;
+
+    hint.textContent = `✅ ${models.length} model dùng được với key này. Chọn một cái rồi bấm Lưu key.`;
+  } catch (err) {
+    hint.textContent = "⚠️ Không tải được danh sách: " + err.message;
+    hint.classList.add("bad");
+  } finally {
+    btn.disabled = false;
+  }
+}
 
 async function testKey() {
   const key = document.getElementById("keyInput").value.trim();
@@ -953,7 +1033,7 @@ async function submitToGallery() {
   const btn = document.getElementById("btnSubmit");
   btn.disabled = true;
   try {
-    await gallerySubmit({
+    const saved = await gallerySubmit({
       id: "p_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8),
       addedAt: Date.now(),
       teacherName: t.name, className: t.className, to: t.to,
@@ -964,6 +1044,12 @@ async function submitToGallery() {
       pageUrl: link.url,
       reviewText: pickedReview
     });
+    // KV list() của Cloudflare là eventually consistent: bài vừa ghi có thể mất tới
+    // 60 giây mới hiện trong /list. Nếu chỉ chờ /list, thầy/cô sẽ thấy thư viện
+    // KHÔNG có bài mình vừa nộp, tưởng hỏng rồi nộp lại — sinh bản trùng.
+    // Nên ghép tạm bản ghi vừa nhận vào danh sách cho đến khi /list bắt kịp.
+    if (galleryIsShared() && saved && saved.id) pendingSubmissions.unshift(saved);
+
     toast(galleryIsShared() ? "Đã nộp vào thư viện chung" : "Đã lưu trên máy này");
     await renderGallery();
     scrollToSection("gallery");
@@ -980,6 +1066,7 @@ function renderReviewBox(text, at) {
 
 /* ---- thư viện dự án ---- */
 let galleryCache = {};   // id -> bản ghi, để mở/đóng nhận xét không phải gọi lại mạng
+let pendingSubmissions = [];  // bài vừa nộp, chờ KV list() bắt kịp (xem submitToGallery)
 
 async function renderGallery() {
   const el = document.getElementById("galleryList");
@@ -996,6 +1083,13 @@ async function renderGallery() {
     el.innerHTML = `<div class="galleryEmpty">⚠️ Không tải được thư viện (${escapeHtml(err.message)}).</div>`;
     return;
   }
+  // Bài nào đã xuất hiện trong /list thì bỏ khỏi hàng chờ; số còn lại ghép lên đầu.
+  if (pendingSubmissions.length) {
+    const seen = new Set(list.map(r => r.id));
+    pendingSubmissions = pendingSubmissions.filter(r => !seen.has(r.id));
+    list = pendingSubmissions.concat(list);
+  }
+
   if (!list.length) {
     el.innerHTML = `<div class="galleryEmpty">Chưa có dự án nào được nộp. Thầy/cô nộp bài đầu tiên nhé!</div>`;
     return;

@@ -58,14 +58,17 @@ const faqData = [{"q": "Tôi không biết lập trình thì có thể tự tạ
 
 // ---- Nhà cung cấp AI cho tính năng "API key của tôi" ----
 // endpoint gọi thẳng từ trình duyệt người dùng, key không đi qua máy chủ nào khác.
+/* Lưu ý: danh sách `models` dưới đây chỉ là GỢI Ý ban đầu, sẽ cũ đi theo thời gian
+   vì nhà cung cấp liên tục bỏ model cũ. Danh sách ĐÚNG lấy bằng nút
+   "Tải danh sách model" ở bước 2 — nó hỏi thẳng nhà cung cấp xem key của
+   thầy/cô dùng được những model nào. */
 const PROVIDERS = [
   {
     id:"gemini", name:"Google Gemini", tagline:"Có hạn mức miễn phí (free tier)",
     keyHint:"Lấy key tại aistudio.google.com/apikey",
     keyLink:"https://aistudio.google.com/apikey",
     models:[
-      {id:"gemini-2.5-flash", label:"Gemini 2.5 Flash — nhanh, miễn phí rộng rãi"},
-      {id:"gemini-2.5-pro", label:"Gemini 2.5 Pro — chất lượng cao hơn"}
+      {id:"gemini-3.6-flash", label:"Gemini 3.6 Flash — nhanh, miễn phí rộng rãi"}
     ],
     testFn:"testGemini"
   },
@@ -74,7 +77,7 @@ const PROVIDERS = [
     keyHint:"Lấy key tại console.anthropic.com",
     keyLink:"https://console.anthropic.com/settings/keys",
     models:[
-      {id:"claude-sonnet-4-5", label:"Claude Sonnet 4.5"},
+      {id:"claude-sonnet-5", label:"Claude Sonnet 5"},
       {id:"claude-haiku-4-5", label:"Claude Haiku 4.5 — nhanh, rẻ hơn"}
     ],
     testFn:"testAnthropic"

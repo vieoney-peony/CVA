@@ -54,6 +54,30 @@ curl https://cva-gallery.ten-tai-khoan.workers.dev/list
 
 Nộp thử một bài trên web rồi gọi lại lệnh trên, phải thấy đúng 1 bản ghi.
 
+> **KV list() chậm tới 60 giây.** Bài vừa ghi có thể chưa hiện ngay trong `/list` —
+> đó là đặc tính *eventual consistency* của Cloudflare KV, không phải lỗi. Gọi lại sau
+> vài giây là thấy. Trên web thì `app.js` đã tự ghép bài vừa nộp vào danh sách
+> nên thầy/cô không thấy độ trễ này.
+
+### Nếu dùng PowerShell trên Windows
+
+Trong PowerShell, `curl` là **alias của `Invoke-WebRequest`**, không hiểu `-H`/`-d`
+(báo lỗi *"Cannot bind parameter 'Headers'"*). Phải gọi `curl.exe` có đuôi `.exe`,
+và đưa JSON qua file thay vì gõ thẳng — PowerShell nuốt mất dấu ngoặc kép:
+
+```powershell
+$f = "$env:TEMP\cva-test.json"
+$json = '{"teacherName":"T","projectName":"T","pageUrl":"https://evil.example.com/x"}'
+# PHẢI ghi không BOM: Out-File -Encoding utf8 của PowerShell 5.1 thêm 3 byte BOM
+# vào đầu file, làm request.json() của Worker báo "Body không phải JSON hợp lệ".
+[System.IO.File]::WriteAllText($f, $json, (New-Object System.Text.UTF8Encoding($false)))
+curl.exe -s -X POST https://cva-gallery.ten-tai-khoan.workers.dev/submit `
+  -H "content-type: application/json" -d "@$f"
+# → {"error":"Chỉ nhận link từ: github.io, pages.dev, netlify.app, vercel.app"}
+```
+
+Ra đúng câu trên nghĩa là Worker bản mới đã lên: vừa nhận `pageUrl`, vừa chặn miền lạ.
+
 ---
 
 ## Tùy chọn: đặt mã nộp bài
