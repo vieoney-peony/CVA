@@ -19,7 +19,7 @@ const LIST_LIMIT = 300;            // số bài trả về tối đa cho /list
 const MAX_URL = 400;               // link trang đã xuất bản
 // Giữ khớp với ALLOWED_PAGE_HOSTS trong data.js. Kiểm tra lại ở đây vì
 // validate phía trình duyệt ai cũng bỏ qua được bằng một lệnh curl.
-const ALLOWED_PAGE_HOSTS = ["github.io", "pages.dev", "netlify.app", "vercel.app"];
+const ALLOWED_PAGE_HOSTS = ["github.io", "pages.dev", "netlify.app", "vercel.app", "ai.studio","run.app"];
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
