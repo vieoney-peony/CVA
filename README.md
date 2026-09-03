@@ -26,7 +26,8 @@ Danh sách model trong `data.js` **chỉ là gợi ý và sẽ cũ đi**; nút *
 sách** hỏi thẳng nhà cung cấp xem key đang cầm dùng được model nào. Đổi model tự lưu.
 
 **Nhận xét AI** (bước 3) — tải file `.html` lên *hoặc* dán link đã xuất bản. Chỉ
-có link thì tự tải HTML từ link đó (GitHub Pages trả `access-control-allow-origin: *`).
+có link thì tự tải HTML từ link đó (GitHub Pages trả `access-control-allow-origin: *`;
+miền không trả CORS như `run.app`, `ai.studio` thì nhờ Worker tải hộ qua `/fetch`).
 
 - `MAX_UPLOAD_MB` (`data.js`) — giới hạn file, mặc định 10MB
 - `REVIEW_CHAR_LIMIT` (`app.js`) — mã nguồn gửi cho AI, mặc định 60.000 ký tự

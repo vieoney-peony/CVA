@@ -937,7 +937,7 @@ function refreshDemoActions() {
     hint.textContent = "⚠️ " + res.msg;
     hint.classList.add("bad");
   } else {
-    hint.textContent = "Dán link nếu thầy/cô đã đưa dự án lên GitHub Pages. Có link thì đồng nghiệp mở là dùng được ngay, không cần tải file về.";
+    hint.textContent = "Dán link nếu thầy/cô đã đưa dự án lên GitHub Pages hoặc bấm Deploy trong Google AI Studio. Có link thì đồng nghiệp mở là dùng được ngay, không cần tải file về.";
     hint.classList.remove("bad");
   }
   document.getElementById("demoActions").hidden = !(pickedDoc || (res.ok && res.url));
@@ -1020,8 +1020,15 @@ function persistModelChoice() {
 
 /**
  * Lấy mã nguồn để nhận xét: ưu tiên file đã chọn, không có thì tải từ link.
- * GitHub Pages trả header "access-control-allow-origin: *" nên tải thẳng từ
- * trình duyệt được, không cần proxy.
+ *
+ * Thử tải THẲNG trước: GitHub Pages / Netlify / Vercel / Cloudflare Pages trả
+ * header "access-control-allow-origin: *" nên đường này nhanh và không cần
+ * Worker. Bị chặn thì nhờ Worker tải hộ qua /fetch — `run.app` và `ai.studio`
+ * không trả header CORS nên chỉ còn đường này.
+ *
+ * Cố ý KHÔNG giữ danh sách "miền nào cần proxy": đã có hai chỗ phải đồng bộ
+ * ALLOWED_PAGE_HOSTS rồi, thêm danh sách thứ ba là thêm chỗ để quên. Thử rồi
+ * lỗi thì đi đường vòng, không cần biết trước miền nào ra sao.
  */
 async function getHtmlForReview() {
   if (pickedDoc) return pickedDoc.html;
@@ -1029,12 +1036,19 @@ async function getHtmlForReview() {
   const res = validatePageUrl(document.getElementById("pageUrl").value);
   if (!res.ok || !res.url) return null;
 
-  const r = await fetch(res.url).catch(() => null);
-  if (!r || !r.ok) {
-    throw new Error("không tải được nội dung từ link đó"
-      + (r ? ` (HTTP ${r.status})` : " — kiểm tra link đã công khai chưa"));
+  // CORS chặn thì fetch ném lỗi (không phải trả status), nên catch = null.
+  const direct = await fetch(res.url).catch(() => null);
+  if (direct && direct.ok) return direct.text();
+
+  if (galleryIsShared()) {
+    const r = await fetch(WORKER_URL + "/fetch?url=" + encodeURIComponent(res.url)).catch(() => null);
+    if (r && r.ok) return r.text();
+    const msg = r ? (await r.json().catch(() => ({}))).error : null;
+    throw new Error(msg || "không tải được nội dung từ link đó — kiểm tra link đã công khai chưa");
   }
-  return r.text();
+
+  throw new Error("không tải được nội dung từ link đó"
+    + (direct ? ` (HTTP ${direct.status})` : " — trang chặn tải từ nơi khác, hãy tải kèm file .html"));
 }
 
 async function runReview() {
