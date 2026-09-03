@@ -93,7 +93,7 @@ Sau đó Worker sẽ từ chối mọi request `/submit` không kèm header `x-c
 ## Giới hạn & vận hành
 
 | Mục | Giá trị |
-|---|---|
+| --- | --- |
 | Kích thước file tối đa | 10MB (`MAX_UPLOAD_MB` trong `data.js` + `MAX_HTML_MB` trong `cloudflare-worker.js`) |
 | Số bài `/list` trả về | 300 mới nhất |
 | Hạn mức KV gói miễn phí | 100.000 lượt đọc/ngày, 1.000 lượt ghi/ngày |

@@ -18,7 +18,8 @@ const MAX_UPLOAD_MB = 10; // 10 MB
 // Chỉ nhận https và các miền dưới đây (kể cả tên miền con), để thư viện
 // chung không biến thành chỗ dán link linh tinh. Thêm dòng nếu trường
 // dùng dịch vụ khác.
-const ALLOWED_PAGE_HOSTS = ["github.io", "pages.dev", "netlify.app", "vercel.app"];
+// const ALLOWED_PAGE_HOSTS = ["github.io", "pages.dev", "netlify.app", "vercel.app"];
+const ALLOWED_PAGE_HOSTS = ["github.io", "pages.dev", "netlify.app", "vercel.app", "ai.studio","run.app"];
 
 // ---- Lớp dạy (dropdown ở phần Demo trang chủ) ----
 // Sửa danh sách này nếu cơ cấu lớp của trường thay đổi.
